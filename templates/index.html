@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>FAX Messenger</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
@@ -12,24 +12,84 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
             background: #0a0f0f;
             color: #e0e0e0;
-            height: 100vh;
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
         }
 
-        /* Контейнер приложения */
-        .app-container {
+        /* Экран входа */
+        #login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0f0f;
+            z-index: 100;
+        }
+
+        .login-box {
+            background: #1a1f1f;
+            padding: 2rem;
+            border-radius: 2rem;
+            text-align: center;
+            border: 1px solid #2a9d8f;
+            width: 90%;
+            max-width: 350px;
+        }
+
+        .login-box h1 {
+            color: #2a9d8f;
+            margin-bottom: 1rem;
+        }
+
+        .login-box input {
+            background: #1e2a2a;
+            border: 1px solid #2a9d8f;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 2rem;
+            width: 100%;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .login-box button {
+            background: #2a9d8f;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+        }
+
+        /* Основное приложение */
+        #app-container {
             display: flex;
             height: 100%;
             width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
-        /* ========== ЛЕВАЯ ПАНЕЛЬ (ДРУЗЬЯ) ========== */
+        /* ЛЕВАЯ ПАНЕЛЬ - ДРУЗЬЯ */
         .friends-panel {
             width: 280px;
             background: #0f1414;
@@ -160,7 +220,7 @@
             border-radius: 1rem;
         }
 
-        /* ========== ПРАВАЯ ПАНЕЛЬ (ЧАТ) ========== */
+        /* ПРАВАЯ ПАНЕЛЬ - ЧАТ */
         .chat-panel {
             flex: 1;
             display: flex;
@@ -206,7 +266,7 @@
             font-size: 0.7rem;
         }
 
-        /* ОБЛАСТЬ СООБЩЕНИЙ - РАСТЯГИВАЕТСЯ */
+        /* ОБЛАСТЬ СООБЩЕНИЙ */
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -265,7 +325,7 @@
             flex-shrink: 0;
         }
 
-        /* ========== НИЖНЯЯ ПАНЕЛЬ ВВОДА - ВСЕГДА ВИДИМА ========== */
+        /* ===== НИЖНЯЯ ПАНЕЛЬ - ПРИНУДИТЕЛЬНО ВИДИМАЯ ===== */
         .input-area {
             padding: 0.6rem 0.8rem;
             display: flex;
@@ -333,7 +393,6 @@
             50% { opacity: 0.7; }
         }
 
-        /* Меню выбора */
         .message-type-menu {
             position: fixed;
             bottom: 75px;
@@ -368,56 +427,16 @@
             background: #2a3a3a;
         }
 
-        /* Экран входа */
-        .login-box {
-            background: #1a1f1f;
-            padding: 2rem;
-            border-radius: 2rem;
-            text-align: center;
-            border: 1px solid #2a9d8f;
-            margin: auto;
-            width: 90%;
-            max-width: 350px;
-        }
-
-        .login-box h1 {
-            color: #2a9d8f;
-            margin-bottom: 1rem;
-        }
-
-        .login-box input {
-            background: #1e2a2a;
-            border: 1px solid #2a9d8f;
-            color: white;
-            padding: 0.75rem;
-            border-radius: 2rem;
-            width: 100%;
-            margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        .login-box button {
-            background: #2a9d8f;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 2rem;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            font-size: 1rem;
-        }
-
         .empty-state {
             text-align: center;
             padding: 2rem;
             color: #666;
         }
 
-        /* ========== МОБИЛЬНЫЕ СТИЛИ ========== */
+        /* МОБИЛЬНЫЕ СТИЛИ - ПАНЕЛЬ ДРУЗЕЙ ВЫЕЗЖАЕТ, НИЖНЯЯ ПАНЕЛЬ ВСЕГДА ВИДИМА */
         @media (max-width: 600px) {
             .friends-panel {
-                position: fixed;
+                position: absolute;
                 top: 0;
                 left: 0;
                 bottom: 0;
@@ -435,18 +454,9 @@
                 display: block;
             }
 
-            .chat-header h4 {
-                font-size: 0.9rem;
-            }
-
-            .message {
-                max-width: 85%;
-                font-size: 0.85rem;
-            }
-
             .mobile-overlay {
                 display: none;
-                position: fixed;
+                position: absolute;
                 top: 0;
                 left: 0;
                 right: 0;
@@ -477,6 +487,15 @@
                 gap: 0.4rem;
                 min-height: 54px;
             }
+
+            .chat-header h4 {
+                font-size: 0.9rem;
+            }
+
+            .message {
+                max-width: 85%;
+                font-size: 0.85rem;
+            }
         }
 
         @media (min-width: 601px) {
@@ -487,19 +506,6 @@
 
         .mobile-overlay {
             display: none;
-        }
-
-        #login-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #0a0f0f;
-            z-index: 100;
         }
     </style>
 </head>
@@ -514,7 +520,7 @@
         </div>
     </div>
 
-    <div id="app-container" class="app-container" style="display:none">
+    <div id="app-container" style="display:none">
         <!-- Левая панель - друзья -->
         <div id="friends-panel" class="friends-panel">
             <div class="friends-header" id="friends-header">
@@ -544,7 +550,7 @@
 
             <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
 
-            <!-- НИЖНЯЯ ПАНЕЛЬ - ВСЕГДА ВИДИМА -->
+            <!-- НИЖНЯЯ ПАНЕЛЬ - ПРИНУДИТЕЛЬНО ВИДИМАЯ -->
             <div class="input-area">
                 <button id="attach-btn" class="attach-btn" title="Attach file">📎</button>
                 <input type="text" id="message-input" placeholder="Message..." autocomplete="off" disabled>
@@ -593,7 +599,6 @@
         const messageTypeMenu = document.getElementById('message-type-menu');
         const mobileOverlay = document.getElementById('mobile-overlay');
 
-        // Управление панелью друзей
         function openFriendsPanel() {
             friendsPanel.classList.add('open');
             mobileOverlay.classList.add('show');
@@ -612,21 +617,18 @@
             }
         }
 
-        // Нажатие на FAX сворачивает панель
         friendsHeader.onclick = () => {
             if (window.innerWidth <= 600) {
                 toggleFriendsPanel();
             }
         };
 
-        // Кнопка "Назад" открывает панель друзей
         backBtn.onclick = () => {
             if (window.innerWidth <= 600) {
                 openFriendsPanel();
             }
         };
 
-        // Закрытие по клику на оверлей
         mobileOverlay.onclick = closeFriendsPanel;
 
         function updateActionButton() {
@@ -886,7 +888,6 @@
             }
         }
 
-        // Поиск пользователей
         let searchTimeout;
         searchInput.addEventListener('input', async () => {
             clearTimeout(searchTimeout);
@@ -939,7 +940,6 @@
             inp.click();
         };
 
-        // Socket события
         socket.on('friends_list', (friends) => {
             friendsList = friends;
             renderFriends();
