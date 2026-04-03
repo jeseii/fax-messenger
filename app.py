@@ -178,6 +178,26 @@ def handle_connect():
 
 @socketio.on('register')
 def handle_register(data):
+@socketio.on('message')
+def handle_message(data):
+    username = None
+    for uid, info in active_users.items():
+        if info['sid'] == request.sid:
+            username = info['username']
+            break
+    
+    if not username:
+        return
+    
+    message = {
+        "id": str(uuid.uuid4())[:8],
+        "type": data.get('type', 'text'),
+        "content": data.get('content', ''),
+        "from": username,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    emit('message', message, broadcast=True)
     user_id = data.get('user_id')
     username = data.get('username')
     

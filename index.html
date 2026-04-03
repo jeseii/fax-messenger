@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>FAX Messenger</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2a9d8f">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            background: #0a0f0f;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .screen { height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; }
+        .hidden { display: none; }
+        .qr-container {
+            background: #1a1f1f; padding: 2rem; border-radius: 2rem; text-align: center;
+            border: 1px solid #2a9d8f; max-width: 90%;
+        }
+        .qr-container h1 { font-size: 3rem; color: #2a9d8f; margin-bottom: 1rem; }
+        .qr-container input {
+            background: #1e2a2a; border: 1px solid #2a9d8f; color: white; padding: 0.75rem;
+            margin: 0.5rem 0; border-radius: 2rem; width: 100%;
+        }
+        .qr-container button {
+            background: #2a9d8f; border: none; padding: 0.75rem 1.5rem; border-radius: 2rem;
+            color: white; font-weight: bold; cursor: pointer;
+        }
+        .chat-header {
+            position: fixed; top: 0; left: 0; right: 0; background: #0f1414;
+            padding: 1rem; border-bottom: 1px solid #2a9d8f; display: flex; justify-content: space-between;
+        }
+        .messages {
+            position: absolute; top: 60px; bottom: 70px; left: 0; right: 0;
+            padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;
+        }
+        .message {
+            max-width: 70%; padding: 0.5rem 1rem; border-radius: 1.5rem; word-wrap: break-word;
+        }
+        .message.own { align-self: flex-end; background: #2a9d8f; color: white; }
+        .message.other { align-self: flex-start; background: #1e2424; }
+        .message .name { font-size: 0.7rem; opacity: 0.7; margin-bottom: 0.2rem; }
+        .input-area {
+            position: fixed; bottom: 0; left: 0; right: 0; background: #0f1414;
+            padding: 0.75rem; display: flex; gap: 0.5rem; border-top: 1px solid #2a9d8f;
+        }
+        #message-input { flex: 1; background: #1a1f1f; border: 1px solid #2a9d8f; border-radius: 2rem; padding: 0.75rem; color: white; }
+        #send-btn { background: #2a9d8f; border: none; border-radius: 2rem; padding: 0 1.5rem; color: white; cursor: pointer; }
+        .online-badge { background: #1e2a2a; padding: 0.25rem 0.75rem; border-radius: 2rem; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div id="qr-screen" class="screen">
+        <div class="qr-container">
+            <h1>FAX</h1>
+            <input type="text" id="username-input" placeholder="Enter your name" maxlength="20">
+            <button id="join-btn">Join Chat</button>
+        </div>
+    </div>
+
+    <div id="chat-screen" class="screen hidden">
+        <div class="chat-header">
+            <span>📠 FAX · <span id="username-display"></span></span>
+            <div class="online-badge">👥 <span id="online-count">0</span> online</div>
+        </div>
+        <div id="messages" class="messages"></div>
+        <div class="input-area">
+            <input type="text" id="message-input" placeholder="Message...">
+            <button id="send-btn">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        let currentUser = null;
+        let messages = [];
+        
+        const qrScreen = document.getElementById('qr-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const usernameDisplay = document.getElementById('username-display');
+        const onlineCountSpan = document.getElementById('online-count');
+        
+        async function joinChat() {
+            const username = document.getElementById('username-input').value.trim();
+            if (!username) {
+                alert('Enter your name');
+                return;
+            }
+            
+            // Регистрация на сервере
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username })
+            });
+            
+            const data = await response.json();
+            if (response.ok) {
+                currentUser = { id: data.user_id, username: username };
+                usernameDisplay.innerText = username;
+                socket.emit('register', { user_id: currentUser.id, username: currentUser.username });
+                qrScreen.classList.add('hidden');
+                chatScreen.classList.remove('hidden');
+            }
+        }
+        
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !currentUser) return;
+            
+            socket.emit('message', {
+                type: 'text',
+                content: text,
+                from: currentUser.username
+            });
+            
+            messageInput.value = '';
+        }
+        
+        function addMessageToUI(msg, isOwn) {
+            const div = document.createElement('div');
+            div.className = `message ${isOwn ? 'own' : 'other'}`;
+            if (!isOwn) {
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'name';
+                nameSpan.innerText = msg.from;
+                div.appendChild(nameSpan);
+            }
+            div.appendChild(document.createTextNode(msg.content));
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Socket события
+        socket.on('message', (msg) => {
+            const isOwn = msg.from === currentUser?.username;
+            addMessageToUI(msg, isOwn);
+        });
+        
+        socket.on('users_online', (users) => {
+            onlineCountSpan.innerText = users.length;
+        });
+        
+        // Кнопки
+        document.getElementById('join-btn').onclick = joinChat;
+        sendBtn.onclick = sendMessage;
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
+        }
+    </script>
+</body>
+</html>
