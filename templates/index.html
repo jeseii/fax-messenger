@@ -24,13 +24,27 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            transition: transform 0.3s ease;
         }
         .friends-header {
             padding: 1rem;
             border-bottom: 1px solid #2a9d8f;
             background: #0a0f0f;
+            cursor: pointer;
+            user-select: none;
         }
-        .friends-header h3 { color: #2a9d8f; font-size: 1rem; }
+        .friends-header h3 { 
+            color: #2a9d8f; 
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        /* Иконка меню (гамбургер) - видна только на телефонах */
+        .menu-icon {
+            font-size: 1.2rem;
+            display: none;
+        }
         .current-user { font-size: 0.8rem; color: #888; margin-top: 0.3rem; }
         
         /* Поиск */
@@ -79,6 +93,17 @@
             display: flex; justify-content: space-between; align-items: center;
         }
         .chat-header h4 { color: #2a9d8f; }
+        /* Кнопка "Назад" для телефона (показывает панель друзей) */
+        .back-btn {
+            display: none;
+            background: #1e2a2a;
+            border: none;
+            color: #2a9d8f;
+            font-size: 1.2rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 1rem;
+            cursor: pointer;
+        }
         .remove-friend-btn {
             background: #e74c3c; border: none; padding: 0.3rem 0.8rem;
             border-radius: 1rem; color: white; cursor: pointer; font-size: 0.7rem;
@@ -128,17 +153,58 @@
         .login-box button { background: #2a9d8f; border: none; padding: 0.75rem 1.5rem; border-radius: 2rem; color: white; font-weight: bold; cursor: pointer; }
         .empty-state { text-align: center; padding: 2rem; color: #666; }
         
+        /* Мобильные стили */
         @media (max-width: 600px) {
-            .friends-panel { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; transform: translateX(-100%); z-index: 20; transition: transform 0.3s ease; }
-            .friends-panel.open { transform: translateX(0); }
-            .menu-btn { display: block; background: #1e2a2a; border: none; color: #2a9d8f; font-size: 1.2rem; padding: 0.3rem 0.6rem; border-radius: 1rem; cursor: pointer; }
-            .chat-header { display: flex; align-items: center; gap: 0.5rem; }
+            .friends-panel {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 280px;
+                transform: translateX(-100%);
+                z-index: 20;
+                border-right: none;
+            }
+            .friends-panel.open {
+                transform: translateX(0);
+            }
+            .menu-icon {
+                display: inline;
+            }
+            .back-btn {
+                display: block;
+            }
+            .chat-header {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
             .message { max-width: 85%; }
+            /* Оверлей для затемнения */
+            .mobile-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 15;
+            }
+            .mobile-overlay.show {
+                display: block;
+            }
         }
-        @media (min-width: 601px) { .menu-btn { display: none; } }
+        @media (min-width: 601px) {
+            .back-btn { display: none; }
+        }
+        .mobile-overlay { display: none; }
     </style>
 </head>
 <body>
+    <!-- Оверлей для затемнения на телефоне -->
+    <div id="mobile-overlay" class="mobile-overlay"></div>
+
     <div id="login-screen" style="height:100vh; display:flex; align-items:center; justify-content:center">
         <div class="login-box">
             <h1>📠 FAX</h1>
@@ -149,8 +215,11 @@
 
     <div id="app-container" class="app-container" style="display:none">
         <div id="friends-panel" class="friends-panel">
-            <div class="friends-header">
-                <h3>📠 FAX · Friends</h3>
+            <div class="friends-header" id="friends-header">
+                <h3>
+                    <span class="menu-icon">☰</span>
+                    📠 FAX
+                </h3>
                 <div class="current-user" id="current-user-name"></div>
             </div>
             <div class="search-box">
@@ -164,7 +233,7 @@
 
         <div class="chat-panel">
             <div class="chat-header">
-                <button id="menu-btn" class="menu-btn">☰</button>
+                <button id="back-btn" class="back-btn">← Back</button>
                 <h4 id="selected-chat-name">Select a chat</h4>
                 <button id="remove-friend-btn" class="remove-friend-btn" style="display: none;">Remove</button>
             </div>
@@ -204,6 +273,7 @@
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
         const friendsPanel = document.getElementById('friends-panel');
+        const friendsHeader = document.getElementById('friends-header');
         const friendsListDiv = document.getElementById('friends-list');
         const messagesArea = document.getElementById('messages-area');
         const messageInput = document.getElementById('message-input');
@@ -211,15 +281,57 @@
         const selectedChatName = document.getElementById('selected-chat-name');
         const currentUserNameSpan = document.getElementById('current-user-name');
         const typingIndicator = document.getElementById('typing-indicator');
-        const menuBtn = document.getElementById('menu-btn');
+        const backBtn = document.getElementById('back-btn');
         const searchInput = document.getElementById('search-input');
         const searchResults = document.getElementById('search-results');
         const removeFriendBtn = document.getElementById('remove-friend-btn');
         const messageTypeMenu = document.getElementById('message-type-menu');
+        const mobileOverlay = document.getElementById('mobile-overlay');
 
-        function toggleFriendsPanel() { friendsPanel.classList.toggle('open'); }
-        function closeFriendsPanel() { friendsPanel.classList.remove('open'); }
-        menuBtn.onclick = toggleFriendsPanel;
+        // === Функции управления панелью друзей на телефоне ===
+        function openFriendsPanel() {
+            friendsPanel.classList.add('open');
+            mobileOverlay.classList.add('show');
+        }
+
+        function closeFriendsPanel() {
+            friendsPanel.classList.remove('open');
+            mobileOverlay.classList.remove('show');
+        }
+
+        function toggleFriendsPanel() {
+            if (friendsPanel.classList.contains('open')) {
+                closeFriendsPanel();
+            } else {
+                openFriendsPanel();
+            }
+        }
+
+        // === События для сворачивания ===
+        // 1. Нажатие на FAX в левой панели (на телефоне сворачивает)
+        friendsHeader.onclick = () => {
+            if (window.innerWidth <= 600) {
+                toggleFriendsPanel();
+            }
+        };
+
+        // 2. Кнопка "Назад" в правой панели (показывает панель друзей)
+        backBtn.onclick = () => {
+            if (window.innerWidth <= 600) {
+                openFriendsPanel();
+            }
+        };
+
+        // 3. Закрытие по клику на оверлей
+        mobileOverlay.onclick = closeFriendsPanel;
+
+        // 4. При выборе друга — автоматически закрываем панель на телефоне
+        function selectFriendAndClose(friendId) {
+            selectFriendById(friendId);
+            if (window.innerWidth <= 600) {
+                closeFriendsPanel();
+            }
+        }
 
         function updateActionButton() {
             const hasText = messageInput.value.trim().length > 0;
@@ -355,7 +467,7 @@
                 return;
             }
             friendsListDiv.innerHTML = friendsList.map(f => `
-                <div class="friend-item ${currentChatUser?.id === f.id ? 'active' : ''}" onclick="selectFriendById('${f.id}')">
+                <div class="friend-item ${currentChatUser?.id === f.id ? 'active' : ''}" onclick="selectFriendAndClose('${f.id}')">
                     <div>
                         <div class="friend-name">${escapeHtml(f.username)}</div>
                         <div class="online-status">
@@ -367,7 +479,17 @@
                 </div>
             `).join('');
         }
-        window.selectFriendById = (id) => { const f = friendsList.find(x => x.id === id); if(f) selectChat(f); };
+        
+        window.selectFriendAndClose = function(friendId) {
+            const f = friendsList.find(x => x.id === friendId);
+            if (f) selectChat(f);
+        };
+        
+        window.selectFriendById = function(friendId) {
+            const f = friendsList.find(x => x.id === friendId);
+            if (f) selectChat(f);
+        };
+        
         window.removeFriend = async (friendId) => {
             if (confirm('Remove this friend?')) {
                 await fetch('/api/remove_friend', {
