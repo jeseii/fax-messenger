@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
     <title>FAX Messenger</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
@@ -266,7 +266,6 @@
             font-size: 0.7rem;
         }
 
-        /* ОБЛАСТЬ СООБЩЕНИЙ */
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -325,7 +324,6 @@
             flex-shrink: 0;
         }
 
-        /* ===== НИЖНЯЯ ПАНЕЛЬ - ПРИНУДИТЕЛЬНО ВИДИМАЯ ===== */
         .input-area {
             padding: 0.6rem 0.8rem;
             display: flex;
@@ -433,7 +431,6 @@
             color: #666;
         }
 
-        /* МОБИЛЬНЫЕ СТИЛИ - ПАНЕЛЬ ДРУЗЕЙ ВЫЕЗЖАЕТ, НИЖНЯЯ ПАНЕЛЬ ВСЕГДА ВИДИМА */
         @media (max-width: 600px) {
             .friends-panel {
                 position: absolute;
@@ -487,15 +484,6 @@
                 gap: 0.4rem;
                 min-height: 54px;
             }
-
-            .chat-header h4 {
-                font-size: 0.9rem;
-            }
-
-            .message {
-                max-width: 85%;
-                font-size: 0.85rem;
-            }
         }
 
         @media (min-width: 601px) {
@@ -521,14 +509,13 @@
     </div>
 
     <div id="app-container" style="display:none">
-        <!-- Левая панель - друзья -->
         <div id="friends-panel" class="friends-panel">
             <div class="friends-header" id="friends-header">
                 <h3>📠 FAX</h3>
                 <div class="current-user" id="current-user-name"></div>
             </div>
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 Search users...">
+                <input type="text" id="search-input" placeholder="🔍 Search users by name...">
                 <div id="search-results" class="search-results" style="display: none;"></div>
             </div>
             <div class="friends-list" id="friends-list">
@@ -536,7 +523,6 @@
             </div>
         </div>
 
-        <!-- Правая панель - чат -->
         <div class="chat-panel">
             <div class="chat-header">
                 <button id="back-btn" class="back-btn">← Back</button>
@@ -550,7 +536,6 @@
 
             <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
 
-            <!-- НИЖНЯЯ ПАНЕЛЬ - ПРИНУДИТЕЛЬНО ВИДИМАЯ -->
             <div class="input-area">
                 <button id="attach-btn" class="attach-btn" title="Attach file">📎</button>
                 <input type="text" id="message-input" placeholder="Message..." autocomplete="off" disabled>
@@ -617,7 +602,9 @@
             }
         }
 
-        friendsHeader.onclick = () => {
+        // ТОЛЬКО заголовок сворачивает панель, а поле поиска — нет!
+        friendsHeader.onclick = (e) => {
+            e.stopPropagation();
             if (window.innerWidth <= 600) {
                 toggleFriendsPanel();
             }
@@ -888,41 +875,83 @@
             }
         }
 
+        // === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
         let searchTimeout;
         searchInput.addEventListener('input', async () => {
+            // Останавливаем всплытие события, чтобы не закрывалась панель
+            event.stopPropagation();
+            
             clearTimeout(searchTimeout);
             const query = searchInput.value.trim();
+            
             if (query.length < 2) {
                 searchResults.style.display = 'none';
                 return;
             }
+            
             searchTimeout = setTimeout(async () => {
-                const res = await fetch('/api/search_users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query, user_id: currentUser.id })
-                });
-                const users = await res.json();
-                searchResults.style.display = 'block';
-                searchResults.innerHTML = users.length ? users.map(u => `
-                    <div class="search-result-item">
-                        <div><strong>${escapeHtml(u.username)}</strong><div style="font-size:0.7rem">${u.online ? '🟢 Online' : '⚫ Offline'}</div></div>
-                        ${!u.is_friend ? `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : '<span style="font-size:0.7rem;color:#666">✓ Friend</span>'}
-                    </div>
-                `).join('') : '<div class="search-result-item">No users found</div>';
+                try {
+                    const res = await fetch('/api/search_users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            query: query, 
+                            user_id: currentUser?.id 
+                        })
+                    });
+                    
+                    const users = await res.json();
+                    console.log('Search results:', users);
+                    
+                    if (users && users.length > 0) {
+                        searchResults.style.display = 'block';
+                        searchResults.innerHTML = users.map(u => `
+                            <div class="search-result-item">
+                                <div>
+                                    <strong>${escapeHtml(u.username)}</strong>
+                                    <div style="font-size:0.7rem">${u.online ? '🟢 Online' : '⚫ Offline'}</div>
+                                </div>
+                                ${!u.is_friend ? 
+                                    `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : 
+                                    '<span style="font-size:0.7rem;color:#666">✓ Friend</span>'}
+                            </div>
+                        `).join('');
+                    } else {
+                        searchResults.style.display = 'block';
+                        searchResults.innerHTML = '<div class="search-result-item">No users found</div>';
+                    }
+                } catch (err) {
+                    console.error('Search error:', err);
+                }
             }, 500);
         });
 
+        // Предотвращаем закрытие панели при клике на поле поиска
+        searchInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
         window.addFriend = async (friendId) => {
-            const res = await fetch('/api/add_friend', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
-            });
-            if (res.ok) {
-                searchInput.value = '';
-                searchResults.style.display = 'none';
-                loadFriends();
+            try {
+                const res = await fetch('/api/add_friend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_id: currentUser.id, 
+                        friend_id: friendId 
+                    })
+                });
+                
+                if (res.ok) {
+                    searchInput.value = '';
+                    searchResults.style.display = 'none';
+                    loadFriends();
+                    alert('Friend added!');
+                } else {
+                    alert('Failed to add friend');
+                }
+            } catch (err) {
+                console.error('Add friend error:', err);
             }
         };
 
@@ -941,12 +970,12 @@
         };
 
         socket.on('friends_list', (friends) => {
-            friendsList = friends;
+            friendsList = friends || [];
             renderFriends();
         });
 
         socket.on('messages_history', (messages) => {
-            currentMessages = messages;
+            currentMessages = messages || [];
             renderMessages();
         });
 
@@ -958,7 +987,9 @@
             loadFriends();
         });
 
-        socket.on('friend_added', () => loadFriends());
+        socket.on('friend_added', () => {
+            loadFriends();
+        });
 
         socket.on('user_typing_private', (data) => {
             if (currentChatUser && currentChatUser.id === data.from_user_id) {
@@ -996,6 +1027,7 @@
         });
 
         function escapeHtml(t) {
+            if (!t) return '';
             const d = document.createElement('div');
             d.textContent = t;
             return d.innerHTML;
