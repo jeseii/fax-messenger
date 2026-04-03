@@ -131,6 +131,7 @@
             padding: 0.5rem 0.8rem;
             color: white;
             font-size: 0.8rem;
+            pointer-events: auto;
         }
 
         .search-results {
@@ -515,7 +516,7 @@
                 <div class="current-user" id="current-user-name"></div>
             </div>
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 Search users by name...">
+                <input type="text" id="search-input" placeholder="🔍 Search users by name..." autocomplete="off">
                 <div id="search-results" class="search-results" style="display: none;"></div>
             </div>
             <div class="friends-list" id="friends-list">
@@ -602,7 +603,7 @@
             }
         }
 
-        // ТОЛЬКО заголовок сворачивает панель, а поле поиска — нет!
+        // ТОЛЬКО заголовок сворачивает панель
         friendsHeader.onclick = (e) => {
             e.stopPropagation();
             if (window.innerWidth <= 600) {
@@ -877,9 +878,8 @@
 
         // === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
         let searchTimeout;
-        searchInput.addEventListener('input', async () => {
-            // Останавливаем всплытие события, чтобы не закрывалась панель
-            event.stopPropagation();
+        searchInput.addEventListener('input', async (e) => {
+            e.stopPropagation();
             
             clearTimeout(searchTimeout);
             const query = searchInput.value.trim();
@@ -926,7 +926,6 @@
             }, 500);
         });
 
-        // Предотвращаем закрытие панели при клике на поле поиска
         searchInput.addEventListener('click', (e) => {
             e.stopPropagation();
         });
