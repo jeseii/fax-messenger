@@ -178,6 +178,19 @@ def handle_connect():
 
 @socketio.on('register')
 def handle_register(data):
+    user_id = data.get('user_id')
+    username = data.get('username')
+    
+    if user_id and user_id in users_db:
+        users_db[user_id]['online'] = True
+        active_users[user_id] = {"username": username, "sid": request.sid}
+        
+        if user_id not in private_messages:
+            private_messages[user_id] = {}
+        
+        save_users({"users": users_db, "friends": friends_db})
+        update_online_users()
+
 @socketio.on('message')
 def handle_message(data):
     username = None
@@ -198,18 +211,6 @@ def handle_message(data):
     }
     
     emit('message', message, broadcast=True)
-    user_id = data.get('user_id')
-    username = data.get('username')
-    
-    if user_id and user_id in users_db:
-        users_db[user_id]['online'] = True
-        active_users[user_id] = {"username": username, "sid": request.sid}
-        
-        if user_id not in private_messages:
-            private_messages[user_id] = {}
-        
-        save_users({"users": users_db, "friends": friends_db})
-        update_online_users()
 
 @socketio.on('get_friends')
 def handle_get_friends():
