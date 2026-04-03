@@ -12,17 +12,12 @@
             box-sizing: border-box;
         }
 
-        html, body {
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            position: fixed;
-        }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
             background: #0a0f0f;
             color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
         }
 
         /* Экран входа */
@@ -82,14 +77,9 @@
             display: flex;
             height: 100%;
             width: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
         }
 
-        /* ЛЕВАЯ ПАНЕЛЬ - ДРУЗЬЯ */
+        /* ЛЕВАЯ ПАНЕЛЬ */
         .friends-panel {
             width: 280px;
             background: #0f1414;
@@ -97,14 +87,12 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            z-index: 20;
         }
 
         .friends-header {
             padding: 1rem;
             border-bottom: 1px solid #2a9d8f;
             background: #0a0f0f;
-            cursor: pointer;
         }
 
         .friends-header h3 {
@@ -131,7 +119,6 @@
             padding: 0.5rem 0.8rem;
             color: white;
             font-size: 0.8rem;
-            pointer-events: auto;
         }
 
         .search-results {
@@ -221,14 +208,13 @@
             border-radius: 1rem;
         }
 
-        /* ПРАВАЯ ПАНЕЛЬ - ЧАТ */
+        /* ПРАВАЯ ПАНЕЛЬ */
         .chat-panel {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
             background: #0a0f0f;
-            height: 100%;
         }
 
         .chat-header {
@@ -238,7 +224,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-shrink: 0;
         }
 
         .chat-header h4 {
@@ -303,28 +288,15 @@
             margin-bottom: 0.2rem;
         }
 
-        .message img,
-        .message video {
-            max-width: 180px;
-            border-radius: 0.8rem;
-            margin-top: 0.3rem;
-        }
-
-        .message audio {
-            margin-top: 0.3rem;
-            max-width: 180px;
-            height: 35px;
-        }
-
         .typing-indicator {
             font-size: 0.7rem;
             color: #2a9d8f;
             font-style: italic;
             padding: 0.2rem 1rem;
             background: #0a0f0f;
-            flex-shrink: 0;
         }
 
+        /* НИЖНЯЯ ПАНЕЛЬ */
         .input-area {
             padding: 0.6rem 0.8rem;
             display: flex;
@@ -332,8 +304,6 @@
             gap: 0.5rem;
             border-top: 1px solid #2a9d8f;
             background: #0f1414;
-            flex-shrink: 0;
-            min-height: 60px;
         }
 
         .attach-btn {
@@ -347,7 +317,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
         }
 
         #message-input {
@@ -374,56 +343,10 @@
             justify-content: center;
             color: white;
             font-size: 1.2rem;
-            transition: all 0.2s;
-            flex-shrink: 0;
         }
 
         .action-btn:active {
             transform: scale(0.95);
-        }
-
-        .action-btn.recording {
-            background: #e74c3c !important;
-            animation: pulse 0.5s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .message-type-menu {
-            position: fixed;
-            bottom: 75px;
-            right: 15px;
-            background: #1a1f1f;
-            border-radius: 1rem;
-            overflow: hidden;
-            z-index: 100;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            border: 1px solid #2a9d8f;
-            transform: translateY(10px);
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s ease;
-        }
-
-        .message-type-menu.show {
-            transform: translateY(0);
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .menu-item {
-            padding: 0.8rem 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            cursor: pointer;
-        }
-
-        .menu-item:hover {
-            background: #2a3a3a;
         }
 
         .empty-state {
@@ -432,9 +355,10 @@
             color: #666;
         }
 
+        /* Мобильные стили */
         @media (max-width: 600px) {
             .friends-panel {
-                position: absolute;
+                position: fixed;
                 top: 0;
                 left: 0;
                 bottom: 0;
@@ -454,7 +378,7 @@
 
             .mobile-overlay {
                 display: none;
-                position: absolute;
+                position: fixed;
                 top: 0;
                 left: 0;
                 right: 0;
@@ -483,7 +407,6 @@
             .input-area {
                 padding: 0.5rem;
                 gap: 0.4rem;
-                min-height: 54px;
             }
         }
 
@@ -516,7 +439,7 @@
                 <div class="current-user" id="current-user-name"></div>
             </div>
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 Search users by name..." autocomplete="off">
+                <input type="text" id="search-input" placeholder="🔍 Search users by name...">
                 <div id="search-results" class="search-results" style="display: none;"></div>
             </div>
             <div class="friends-list" id="friends-list">
@@ -545,7 +468,7 @@
         </div>
     </div>
 
-    <div id="message-type-menu" class="message-type-menu">
+    <div id="message-type-menu" class="message-type-menu" style="display:none">
         <div class="menu-item" data-type="voice">🎤 Voice message</div>
         <div class="menu-item" data-type="video">🎥 Video circle</div>
     </div>
@@ -557,14 +480,6 @@
         let currentChatUser = null;
         let friendsList = [];
         let currentMessages = [];
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let typingTimeout = null;
-        let isTyping = false;
-        let currentActionType = 'voice';
-        let pressTimer = null;
-        let isLongPress = false;
 
         // DOM элементы
         const loginScreen = document.getElementById('login-screen');
@@ -582,9 +497,9 @@
         const searchInput = document.getElementById('search-input');
         const searchResults = document.getElementById('search-results');
         const removeFriendBtn = document.getElementById('remove-friend-btn');
-        const messageTypeMenu = document.getElementById('message-type-menu');
         const mobileOverlay = document.getElementById('mobile-overlay');
 
+        // Управление панелью
         function openFriendsPanel() {
             friendsPanel.classList.add('open');
             mobileOverlay.classList.add('show');
@@ -595,19 +510,13 @@
             mobileOverlay.classList.remove('show');
         }
 
-        function toggleFriendsPanel() {
-            if (friendsPanel.classList.contains('open')) {
-                closeFriendsPanel();
-            } else {
-                openFriendsPanel();
-            }
-        }
-
-        // ТОЛЬКО заголовок сворачивает панель
-        friendsHeader.onclick = (e) => {
-            e.stopPropagation();
+        friendsHeader.onclick = () => {
             if (window.innerWidth <= 600) {
-                toggleFriendsPanel();
+                if (friendsPanel.classList.contains('open')) {
+                    closeFriendsPanel();
+                } else {
+                    openFriendsPanel();
+                }
             }
         };
 
@@ -619,121 +528,7 @@
 
         mobileOverlay.onclick = closeFriendsPanel;
 
-        function updateActionButton() {
-            const hasText = messageInput.value.trim().length > 0;
-            if (hasText && currentChatUser) {
-                actionBtn.innerHTML = '➤';
-                actionBtn.title = 'Send message';
-            } else if (currentChatUser) {
-                actionBtn.innerHTML = currentActionType === 'voice' ? '🎤' : '🎥';
-                actionBtn.title = currentActionType === 'voice' ? 'Voice message (tap menu, hold record)' : 'Video circle (tap menu)';
-            } else {
-                actionBtn.innerHTML = '🎤';
-            }
-        }
-
-        function showMessageTypeMenu() {
-            messageTypeMenu.classList.add('show');
-            setTimeout(() => document.addEventListener('click', closeMenuOnClickOutside), 10);
-        }
-
-        function closeMenuOnClickOutside(e) {
-            if (!messageTypeMenu.contains(e.target) && e.target !== actionBtn) hideMessageTypeMenu();
-        }
-
-        function hideMessageTypeMenu() {
-            messageTypeMenu.classList.remove('show');
-            document.removeEventListener('click', closeMenuOnClickOutside);
-        }
-
-        function setActionType(type) {
-            currentActionType = type;
-            updateActionButton();
-            hideMessageTypeMenu();
-        }
-
-        async function startVoiceRecording() {
-            if (!currentChatUser || isRecording) return;
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadAndSend(new File([blob], 'voice.webm'), 'voice');
-                    stream.getTracks().forEach(t => t.stop());
-                    actionBtn.classList.remove('recording');
-                    isRecording = false;
-                };
-                mediaRecorder.start();
-                isRecording = true;
-                actionBtn.classList.add('recording');
-                actionBtn.innerHTML = '⏹️';
-                setTimeout(() => {
-                    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
-                }, 60000);
-            } catch (err) {
-                alert('Microphone access denied');
-            }
-        }
-
-        async function startVideoRecording() {
-            if (!currentChatUser) return;
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                const recorder = new MediaRecorder(stream);
-                let chunks = [];
-                recorder.ondataavailable = e => chunks.push(e.data);
-                recorder.onstop = () => {
-                    uploadAndSend(new File([new Blob(chunks, { type: 'video/webm' })], 'video.webm'), 'video');
-                    stream.getTracks().forEach(t => t.stop());
-                    actionBtn.classList.remove('recording');
-                };
-                recorder.start();
-                actionBtn.classList.add('recording');
-                actionBtn.innerHTML = '⏹️';
-                setTimeout(() => {
-                    if (recorder.state === 'recording') recorder.stop();
-                    updateActionButton();
-                }, 10000);
-            } catch (err) {
-                alert('Camera access denied');
-            }
-        }
-
-        function onActionButtonStart(e) {
-            if (!currentChatUser) return;
-            if (messageInput.value.trim().length > 0) return;
-            e.preventDefault();
-            isLongPress = false;
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                if (currentActionType === 'voice') startVoiceRecording();
-                else if (currentActionType === 'video') startVideoRecording();
-            }, 400);
-        }
-
-        function onActionButtonEnd() {
-            if (pressTimer) {
-                clearTimeout(pressTimer);
-                pressTimer = null;
-            }
-            if (!currentChatUser) return;
-            if (messageInput.value.trim().length > 0) sendMessage();
-            else if (!isLongPress) showMessageTypeMenu();
-            isLongPress = false;
-        }
-
-        actionBtn.addEventListener('mousedown', onActionButtonStart);
-        actionBtn.addEventListener('mouseup', onActionButtonEnd);
-        actionBtn.addEventListener('touchstart', onActionButtonStart);
-        actionBtn.addEventListener('touchend', onActionButtonEnd);
-
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.addEventListener('click', () => setActionType(item.dataset.type));
-        });
-
+        // Вход
         document.getElementById('join-btn').onclick = async () => {
             const username = document.getElementById('username-input').value.trim();
             if (!username) {
@@ -765,7 +560,6 @@
             selectedChatName.innerText = friend.username;
             removeFriendBtn.style.display = 'block';
             messageInput.disabled = false;
-            updateActionButton();
             socket.emit('get_messages', {
                 user_id: currentUser.id,
                 other_user_id: friend.id
@@ -793,11 +587,6 @@
         }
 
         window.selectFriendAndClose = function(friendId) {
-            const f = friendsList.find(x => x.id === friendId);
-            if (f) selectChat(f);
-        };
-
-        window.selectFriendById = function(friendId) {
             const f = friendsList.find(x => x.id === friendId);
             if (f) selectChat(f);
         };
@@ -832,19 +621,10 @@
             messagesArea.innerHTML = currentMessages.map(msg => `
                 <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}">
                     ${msg.from_id !== currentUser?.id ? `<div class="name">${escapeHtml(msg.from)}</div>` : ''}
-                    ${renderMessageContent(msg)}
+                    ${escapeHtml(msg.content)}
                 </div>
             `).join('');
             messagesArea.scrollTop = messagesArea.scrollHeight;
-        }
-
-        function renderMessageContent(msg) {
-            if (msg.type === 'text') return escapeHtml(msg.content);
-            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image">`;
-            if (msg.type === 'video') return `<video src="${msg.content}" controls loop muted style="max-width:180px"></video>`;
-            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
-            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank" style="color:#2a9d8f">📎 ${msg.filename || 'File'}</a>`;
-            return msg.content;
         }
 
         function sendMessage() {
@@ -855,33 +635,11 @@
                 message: { type: 'text', content: messageInput.value.trim() }
             });
             messageInput.value = '';
-            updateActionButton();
         }
 
-        async function uploadAndSend(file, type) {
-            if (!currentChatUser) return;
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            if (res.ok) {
-                socket.emit('private_message', {
-                    from_user_id: currentUser.id,
-                    to_user_id: currentChatUser.id,
-                    message: { type, content: data.url, name: data.name }
-                });
-            }
-        }
-
-        // === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
+        // === ПОИСК ===
         let searchTimeout;
         searchInput.addEventListener('input', async (e) => {
-            e.stopPropagation();
-            
-            clearTimeout(searchTimeout);
             const query = searchInput.value.trim();
             
             if (query.length < 2) {
@@ -889,19 +647,16 @@
                 return;
             }
             
+            clearTimeout(searchTimeout);
             searchTimeout = setTimeout(async () => {
                 try {
                     const res = await fetch('/api/search_users', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            query: query, 
-                            user_id: currentUser?.id 
-                        })
+                        body: JSON.stringify({ query, user_id: currentUser?.id })
                     });
                     
                     const users = await res.json();
-                    console.log('Search results:', users);
                     
                     if (users && users.length > 0) {
                         searchResults.style.display = 'block';
@@ -926,19 +681,12 @@
             }, 500);
         });
 
-        searchInput.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-
         window.addFriend = async (friendId) => {
             try {
                 const res = await fetch('/api/add_friend', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        user_id: currentUser.id, 
-                        friend_id: friendId 
-                    })
+                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
                 });
                 
                 if (res.ok) {
@@ -946,28 +694,13 @@
                     searchResults.style.display = 'none';
                     loadFriends();
                     alert('Friend added!');
-                } else {
-                    alert('Failed to add friend');
                 }
             } catch (err) {
                 console.error('Add friend error:', err);
             }
         };
 
-        document.getElementById('attach-btn').onclick = () => {
-            const inp = document.createElement('input');
-            inp.type = 'file';
-            inp.onchange = (e) => {
-                if (e.target.files[0]) {
-                    const f = e.target.files[0];
-                    if (f.type.startsWith('image/')) uploadAndSend(f, 'image');
-                    else if (f.type.startsWith('video/')) uploadAndSend(f, 'video');
-                    else uploadAndSend(f, 'file');
-                }
-            };
-            inp.click();
-        };
-
+        // Socket события
         socket.on('friends_list', (friends) => {
             friendsList = friends || [];
             renderFriends();
@@ -986,44 +719,7 @@
             loadFriends();
         });
 
-        socket.on('friend_added', () => {
-            loadFriends();
-        });
-
-        socket.on('user_typing_private', (data) => {
-            if (currentChatUser && currentChatUser.id === data.from_user_id) {
-                typingIndicator.style.display = data.is_typing ? 'block' : 'none';
-                typingIndicator.innerText = data.is_typing ? `${data.from_username} is typing...` : '';
-            }
-        });
-
-        messageInput.addEventListener('input', updateActionButton);
-
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                sendMessage();
-            }
-            if (currentChatUser && !isTyping) {
-                isTyping = true;
-                socket.emit('typing_private', {
-                    from_user_id: currentUser.id,
-                    to_user_id: currentChatUser.id,
-                    is_typing: true
-                });
-            }
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                if (currentChatUser) {
-                    socket.emit('typing_private', {
-                        from_user_id: currentUser.id,
-                        to_user_id: currentChatUser.id,
-                        is_typing: false
-                    });
-                    isTyping = false;
-                }
-            }, 1000);
-        });
+        socket.on('friend_added', () => loadFriends());
 
         function escapeHtml(t) {
             if (!t) return '';
@@ -1032,9 +728,20 @@
             return d.innerHTML;
         }
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
-        }
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.getElementById('attach-btn').onclick = () => {
+            alert('File upload will work soon!');
+        };
+
+        actionBtn.onclick = () => {
+            alert('Voice messages will work soon!');
+        };
     </script>
 </body>
 </html>
