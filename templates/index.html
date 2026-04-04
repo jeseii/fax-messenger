@@ -12,14 +12,17 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
             background: #0a0f0f;
             color: #e0e0e0;
-            height: 100vh;
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
         }
 
         /* Экран входа */
@@ -81,7 +84,7 @@
             width: 100%;
         }
 
-        /* ЛЕВАЯ ПАНЕЛЬ */
+        /* ЛЕВАЯ ПАНЕЛЬ - ДРУЗЬЯ */
         .friends-panel {
             width: 280px;
             background: #0f1414;
@@ -212,7 +215,7 @@
             border-radius: 1rem;
         }
 
-        /* ПРАВАЯ ПАНЕЛЬ */
+        /* ПРАВАЯ ПАНЕЛЬ - ЧАТ */
         .chat-panel {
             flex: 1;
             display: flex;
@@ -303,30 +306,35 @@
             flex-shrink: 0;
         }
 
-        /* НИЖНЯЯ ПАНЕЛЬ - ВСЕГДА ВИДИМА */
+        /* ===== НИЖНЯЯ ПАНЕЛЬ - ТЕЛЕГРАМ-СТИЛЬ ===== */
         .input-area {
-            padding: 0.6rem 0.8rem;
+            padding: 0.5rem 0.8rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
             border-top: 1px solid #2a9d8f;
             background: #0f1414;
             flex-shrink: 0;
-            min-height: 60px;
+            min-height: 56px;
         }
 
-        .attach-btn {
+        .media-btn {
             background: #1e2a2a;
             border: none;
             font-size: 1.2rem;
             border-radius: 50%;
             cursor: pointer;
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .media-btn:active {
+            transform: scale(0.95);
         }
 
         #message-input {
@@ -337,7 +345,7 @@
             padding: 0.6rem 1rem;
             color: white;
             font-size: 1rem;
-            height: 42px;
+            height: 40px;
             outline: none;
         }
 
@@ -346,8 +354,8 @@
             border: none;
             border-radius: 50%;
             cursor: pointer;
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -359,6 +367,51 @@
 
         .action-btn:active {
             transform: scale(0.95);
+        }
+
+        .action-btn.recording {
+            background: #e74c3c !important;
+            animation: pulse 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Меню выбора типа сообщения */
+        .message-type-menu {
+            position: fixed;
+            bottom: 70px;
+            right: 15px;
+            background: #1a1f1f;
+            border-radius: 1rem;
+            overflow: hidden;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid #2a9d8f;
+            transform: translateY(10px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .message-type-menu.show {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .menu-item {
+            padding: 0.8rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            cursor: pointer;
+        }
+
+        .menu-item:hover {
+            background: #2a3a3a;
         }
 
         .empty-state {
@@ -403,23 +456,23 @@
                 display: block;
             }
 
-            .attach-btn,
+            .media-btn,
             .action-btn {
-                width: 38px;
-                height: 38px;
+                width: 36px;
+                height: 36px;
                 font-size: 1rem;
             }
 
             #message-input {
-                height: 38px;
+                height: 36px;
                 font-size: 14px;
                 padding: 0.5rem 0.8rem;
             }
 
             .input-area {
-                padding: 0.5rem;
+                padding: 0.4rem 0.6rem;
                 gap: 0.4rem;
-                min-height: 54px;
+                min-height: 52px;
             }
         }
 
@@ -473,13 +526,19 @@
 
             <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
 
-            <!-- НИЖНЯЯ ПАНЕЛЬ - ВСЕГДА ВИДИМА -->
+            <!-- НИЖНЯЯ ПАНЕЛЬ - ТЕЛЕГРАМ-СТИЛЬ -->
             <div class="input-area">
-                <button id="attach-btn" class="attach-btn" title="Attach file">📎</button>
-                <input type="text" id="message-input" placeholder="Message..." autocomplete="off" disabled>
-                <button id="send-btn" class="action-btn" title="Send message">➤</button>
+                <button id="attach-file" class="media-btn" title="Attach file">📎</button>
+                <input type="text" id="message-input" placeholder="Message..." autocomplete="off">
+                <button id="action-btn" class="action-btn" title="Voice message">🎤</button>
             </div>
         </div>
+    </div>
+
+    <!-- Меню выбора типа сообщения -->
+    <div id="message-type-menu" class="message-type-menu">
+        <div class="menu-item" data-type="voice">🎤 Voice message</div>
+        <div class="menu-item" data-type="video">🎥 Video circle</div>
     </div>
 
     <script>
@@ -489,6 +548,12 @@
         let currentChatUser = null;
         let friendsList = [];
         let currentMessages = [];
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let currentActionType = 'voice';
+        let pressTimer = null;
+        let isLongPress = false;
 
         // DOM элементы
         const loginScreen = document.getElementById('login-screen');
@@ -498,7 +563,7 @@
         const friendsListDiv = document.getElementById('friends-list');
         const messagesArea = document.getElementById('messages-area');
         const messageInput = document.getElementById('message-input');
-        const sendBtn = document.getElementById('send-btn');
+        const actionBtn = document.getElementById('action-btn');
         const selectedChatName = document.getElementById('selected-chat-name');
         const currentUserNameSpan = document.getElementById('current-user-name');
         const typingIndicator = document.getElementById('typing-indicator');
@@ -507,6 +572,8 @@
         const searchResults = document.getElementById('search-results');
         const removeFriendBtn = document.getElementById('remove-friend-btn');
         const mobileOverlay = document.getElementById('mobile-overlay');
+        const messageTypeMenu = document.getElementById('message-type-menu');
+        const attachFileBtn = document.getElementById('attach-file');
 
         // Управление панелью
         function openFriendsPanel() {
@@ -537,7 +604,133 @@
 
         mobileOverlay.onclick = closeFriendsPanel;
 
-        // Вход
+        // === ДИНАМИЧЕСКАЯ КНОПКА (Telegram-стиль) ===
+        function updateActionButton() {
+            const hasText = messageInput.value.trim().length > 0;
+            if (hasText && currentChatUser) {
+                actionBtn.innerHTML = '➤';
+                actionBtn.title = 'Send message';
+            } else if (currentChatUser) {
+                actionBtn.innerHTML = currentActionType === 'voice' ? '🎤' : '🎥';
+                actionBtn.title = currentActionType === 'voice' ? 'Voice message (tap menu, hold record)' : 'Video circle (tap menu)';
+            } else {
+                actionBtn.innerHTML = '🎤';
+            }
+        }
+
+        // === Меню выбора ===
+        function showMessageTypeMenu() {
+            messageTypeMenu.classList.add('show');
+            setTimeout(() => document.addEventListener('click', closeMenuOnClickOutside), 10);
+        }
+
+        function closeMenuOnClickOutside(e) {
+            if (!messageTypeMenu.contains(e.target) && e.target !== actionBtn) hideMessageTypeMenu();
+        }
+
+        function hideMessageTypeMenu() {
+            messageTypeMenu.classList.remove('show');
+            document.removeEventListener('click', closeMenuOnClickOutside);
+        }
+
+        function setActionType(type) {
+            currentActionType = type;
+            updateActionButton();
+            hideMessageTypeMenu();
+        }
+
+        // === Голосовая запись ===
+        async function startVoiceRecording() {
+            if (!currentChatUser || isRecording) return;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    uploadAndSend(new File([blob], 'voice.webm'), 'voice');
+                    stream.getTracks().forEach(t => t.stop());
+                    actionBtn.classList.remove('recording');
+                    isRecording = false;
+                };
+                mediaRecorder.start();
+                isRecording = true;
+                actionBtn.classList.add('recording');
+                actionBtn.innerHTML = '⏹️';
+                setTimeout(() => {
+                    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+                }, 60000);
+            } catch (err) {
+                alert('Microphone access denied');
+            }
+        }
+
+        // === Видео-кружочек ===
+        async function startVideoRecording() {
+            if (!currentChatUser) return;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const recorder = new MediaRecorder(stream);
+                let chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    uploadAndSend(new File([new Blob(chunks, { type: 'video/webm' })], 'video.webm'), 'video');
+                    stream.getTracks().forEach(t => t.stop());
+                    actionBtn.classList.remove('recording');
+                };
+                recorder.start();
+                actionBtn.classList.add('recording');
+                actionBtn.innerHTML = '⏹️';
+                setTimeout(() => {
+                    if (recorder.state === 'recording') recorder.stop();
+                    updateActionButton();
+                }, 10000);
+            } catch (err) {
+                alert('Camera access denied');
+            }
+        }
+
+        // === Обработка кнопки (долгое/короткое нажатие) ===
+        function onActionButtonStart(e) {
+            if (!currentChatUser) return;
+            const hasText = messageInput.value.trim().length > 0;
+            if (hasText) return;
+            e.preventDefault();
+            isLongPress = false;
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                if (currentActionType === 'voice') startVoiceRecording();
+                else if (currentActionType === 'video') startVideoRecording();
+            }, 400);
+        }
+
+        function onActionButtonEnd() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (!currentChatUser) return;
+            const hasText = messageInput.value.trim().length > 0;
+            if (hasText) {
+                sendMessage();
+            } else if (!isLongPress) {
+                showMessageTypeMenu();
+            }
+            isLongPress = false;
+        }
+
+        actionBtn.addEventListener('mousedown', onActionButtonStart);
+        actionBtn.addEventListener('mouseup', onActionButtonEnd);
+        actionBtn.addEventListener('touchstart', onActionButtonStart);
+        actionBtn.addEventListener('touchend', onActionButtonEnd);
+
+        // Пункты меню
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => setActionType(item.dataset.type));
+        });
+
+        // === Вход ===
         document.getElementById('join-btn').onclick = async () => {
             const username = document.getElementById('username-input').value.trim();
             if (!username) {
@@ -568,7 +761,7 @@
             currentChatUser = friend;
             selectedChatName.innerText = friend.username;
             removeFriendBtn.style.display = 'block';
-            messageInput.disabled = false;
+            updateActionButton();
             socket.emit('get_messages', {
                 user_id: currentUser.id,
                 other_user_id: friend.id
@@ -611,7 +804,6 @@
                     currentChatUser = null;
                     selectedChatName.innerText = 'Select a chat';
                     removeFriendBtn.style.display = 'none';
-                    messageInput.disabled = true;
                     messagesArea.innerHTML = '<div class="empty-state">Choose a friend to start messaging</div>';
                 }
                 loadFriends();
@@ -630,32 +822,61 @@
             messagesArea.innerHTML = currentMessages.map(msg => `
                 <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}">
                     ${msg.from_id !== currentUser?.id ? `<div class="name">${escapeHtml(msg.from)}</div>` : ''}
-                    ${escapeHtml(msg.content)}
+                    ${renderMessageContent(msg)}
                 </div>
             `).join('');
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
+        function renderMessageContent(msg) {
+            if (msg.type === 'text') return escapeHtml(msg.content);
+            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" style="max-width:180px; border-radius:0.8rem">`;
+            if (msg.type === 'video') return `<video src="${msg.content}" controls loop muted style="max-width:180px; border-radius:0.8rem"></video>`;
+            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
+            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank" style="color:#2a9d8f">📎 ${msg.filename || 'File'}</a>`;
+            return msg.content;
+        }
+
         function sendMessage() {
-            if (!currentChatUser || !messageInput.value.trim()) return;
+            if (!currentChatUser) {
+                alert('Select a friend first');
+                return;
+            }
+            const text = messageInput.value.trim();
+            if (!text) return;
+            
             socket.emit('private_message', {
                 from_user_id: currentUser.id,
                 to_user_id: currentChatUser.id,
-                message: { type: 'text', content: messageInput.value.trim() }
+                message: { type: 'text', content: text }
             });
             messageInput.value = '';
+            updateActionButton();
+        }
+
+        async function uploadAndSend(file, type) {
+            if (!currentChatUser) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (res.ok) {
+                socket.emit('private_message', {
+                    from_user_id: currentUser.id,
+                    to_user_id: currentChatUser.id,
+                    message: { type, content: data.url, name: data.name }
+                });
+            }
         }
 
         // === ПОИСК ===
         let searchTimeout;
         searchInput.addEventListener('input', async (e) => {
             const query = searchInput.value.trim();
-            
             if (query.length < 2) {
                 searchResults.style.display = 'none';
                 return;
             }
-            
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(async () => {
                 try {
@@ -664,9 +885,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ query, user_id: currentUser?.id })
                     });
-                    
                     const users = await res.json();
-                    
                     if (users && users.length > 0) {
                         searchResults.style.display = 'block';
                         searchResults.innerHTML = users.map(u => `
@@ -675,9 +894,7 @@
                                     <strong>${escapeHtml(u.username)}</strong>
                                     <div style="font-size:0.7rem">${u.online ? '🟢 Online' : '⚫ Offline'}</div>
                                 </div>
-                                ${!u.is_friend ? 
-                                    `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : 
-                                    '<span style="font-size:0.7rem;color:#666">✓ Friend</span>'}
+                                ${!u.is_friend ? `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : '<span style="font-size:0.7rem;color:#666">✓ Friend</span>'}
                             </div>
                         `).join('');
                     } else {
@@ -697,7 +914,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
                 });
-                
                 if (res.ok) {
                     searchInput.value = '';
                     searchResults.style.display = 'none';
@@ -709,7 +925,22 @@
             }
         };
 
-        // Socket события
+        // === Прикрепление файлов ===
+        attachFileBtn.onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = (e) => {
+                if (e.target.files[0]) {
+                    const file = e.target.files[0];
+                    if (file.type.startsWith('image/')) uploadAndSend(file, 'image');
+                    else if (file.type.startsWith('video/')) uploadAndSend(file, 'video');
+                    else uploadAndSend(file, 'file');
+                }
+            };
+            input.click();
+        };
+
+        // === Socket события ===
         socket.on('friends_list', (friends) => {
             friendsList = friends || [];
             renderFriends();
@@ -730,15 +961,15 @@
 
         socket.on('friend_added', () => loadFriends());
 
-        function escapeHtml(t) {
-            if (!t) return '';
-            const d = document.createElement('div');
-            d.textContent = t;
-            return d.innerHTML;
-        }
+        socket.on('user_typing_private', (data) => {
+            if (currentChatUser && currentChatUser.id === data.from_user_id) {
+                typingIndicator.style.display = data.is_typing ? 'block' : 'none';
+                typingIndicator.innerText = data.is_typing ? `${data.from_username} is typing...` : '';
+            }
+        });
 
-        // ОТПРАВКА СООБЩЕНИЯ
-        sendBtn.onclick = sendMessage;
+        // === Ввод текста ===
+        messageInput.addEventListener('input', updateActionButton);
         
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -747,10 +978,17 @@
             }
         });
 
-        // Временная заглушка для кнопки прикрепления файлов
-        document.getElementById('attach-btn').onclick = () => {
-            alert('File upload will be available soon!');
-        };
+        function escapeHtml(t) {
+            if (!t) return '';
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
+        }
     </script>
 </body>
 </html>
