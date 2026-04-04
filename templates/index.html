@@ -77,14 +77,13 @@
             font-size: 1rem;
         }
 
-        /* Основное приложение */
         .app-container {
             display: flex;
             height: 100%;
             width: 100%;
         }
 
-        /* ЛЕВАЯ ПАНЕЛЬ - ДРУЗЬЯ */
+        /* ЛЕВАЯ ПАНЕЛЬ */
         .friends-panel {
             width: 280px;
             background: #0f1414;
@@ -205,6 +204,15 @@
             background: #666;
         }
 
+        .unread-badge {
+            background: #e74c3c;
+            color: white;
+            border-radius: 1rem;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
         .remove-friend-small {
             background: none;
             border: none;
@@ -215,7 +223,6 @@
             border-radius: 1rem;
         }
 
-        /* ПРАВАЯ ПАНЕЛЬ - ЧАТ */
         .chat-panel {
             flex: 1;
             display: flex;
@@ -270,12 +277,14 @@
             gap: 0.5rem;
         }
 
+        /* Сообщение */
         .message {
             max-width: 70%;
             padding: 0.5rem 1rem;
             border-radius: 1.5rem;
             word-wrap: break-word;
             font-size: 0.9rem;
+            position: relative;
         }
 
         .message.own {
@@ -297,6 +306,23 @@
             margin-bottom: 0.2rem;
         }
 
+        .message .time {
+            font-size: 0.6rem;
+            opacity: 0.5;
+            margin-left: 0.5rem;
+        }
+
+        .message .status {
+            font-size: 0.6rem;
+            margin-left: 0.3rem;
+        }
+
+        .message .edited-badge {
+            font-size: 0.6rem;
+            opacity: 0.5;
+            margin-left: 0.3rem;
+        }
+
         .message img {
             max-width: 200px;
             border-radius: 1rem;
@@ -304,14 +330,12 @@
             cursor: pointer;
         }
 
-        /* Круглое видео (как в Telegram) */
         .message video {
             width: 150px;
             height: 150px;
             border-radius: 50%;
             object-fit: cover;
             margin-top: 0.3rem;
-            background: #1e2424;
         }
 
         .message audio {
@@ -324,6 +348,76 @@
             text-decoration: none;
         }
 
+        /* Реакции */
+        .reactions {
+            display: flex;
+            gap: 0.2rem;
+            margin-top: 0.2rem;
+            flex-wrap: wrap;
+        }
+
+        .reaction {
+            background: rgba(255,255,255,0.1);
+            border-radius: 1rem;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .reaction:hover {
+            transform: scale(1.1);
+        }
+
+        /* Контекстное меню */
+        .context-menu {
+            position: fixed;
+            background: #1a1f1f;
+            border-radius: 1rem;
+            overflow: hidden;
+            z-index: 200;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid #2a9d8f;
+            min-width: 150px;
+        }
+
+        .context-menu-item {
+            padding: 0.8rem 1.2rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .context-menu-item:hover {
+            background: #2a3a3a;
+        }
+
+        /* Меню реакций */
+        .reaction-menu {
+            position: fixed;
+            background: #1a1f1f;
+            border-radius: 2rem;
+            padding: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 200;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid #2a9d8f;
+        }
+
+        .reaction-emoji {
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.3rem;
+            transition: transform 0.1s;
+        }
+
+        .reaction-emoji:hover {
+            transform: scale(1.2);
+        }
+
         .typing-indicator {
             font-size: 0.7rem;
             color: #2a9d8f;
@@ -333,7 +427,6 @@
             flex-shrink: 0;
         }
 
-        /* НИЖНЯЯ ПАНЕЛЬ */
         .input-area {
             padding: 0.5rem 0.8rem;
             display: flex;
@@ -396,7 +489,6 @@
             transform: scale(0.95);
         }
 
-        /* ПЛАШКА ЗАПИСИ ГОЛОСОВОГО (как в Telegram) */
         .recording-panel {
             position: fixed;
             bottom: 70px;
@@ -451,7 +543,6 @@
             padding: 0.5rem;
         }
 
-        /* ПРЕДПРОСМОТР ВИДЕО (круглый) */
         .video-preview {
             position: fixed;
             bottom: 80px;
@@ -487,7 +578,6 @@
             50% { transform: scale(1.1); opacity: 0.8; }
         }
 
-        /* Мобильные стили */
         @media (max-width: 600px) {
             .friends-panel {
                 position: fixed;
@@ -499,15 +589,12 @@
                 z-index: 30;
                 transition: transform 0.3s ease;
             }
-
             .friends-panel.open {
                 transform: translateX(0);
             }
-
             .back-btn {
                 display: block;
             }
-
             .mobile-overlay {
                 display: none;
                 position: fixed;
@@ -518,30 +605,24 @@
                 background: rgba(0, 0, 0, 0.5);
                 z-index: 25;
             }
-
             .mobile-overlay.show {
                 display: block;
             }
-
-            .media-btn,
-            .action-btn {
+            .media-btn, .action-btn {
                 width: 36px;
                 height: 36px;
                 font-size: 1rem;
             }
-
             #message-input {
                 height: 36px;
                 font-size: 14px;
                 padding: 0.5rem 0.8rem;
             }
-
             .input-area {
                 padding: 0.4rem 0.6rem;
                 gap: 0.4rem;
                 min-height: 52px;
             }
-
             .video-preview {
                 width: 80px;
                 height: 80px;
@@ -600,7 +681,6 @@
 
             <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
 
-            <!-- НИЖНЯЯ ПАНЕЛЬ -->
             <div class="input-area">
                 <button id="attach-file" class="media-btn" title="Attach file">📎</button>
                 <input type="text" id="message-input" placeholder="Message..." autocomplete="off">
@@ -609,7 +689,6 @@
         </div>
     </div>
 
-    <!-- ПЛАШКА ЗАПИСИ ГОЛОСОВОГО -->
     <div id="recording-panel" class="recording-panel">
         <div class="mic-icon">🎤</div>
         <div class="recording-info">
@@ -619,7 +698,6 @@
         <button id="cancel-recording" class="cancel-recording">✕</button>
     </div>
 
-    <!-- ПРЕДПРОСМОТР ВИДЕО -->
     <div id="video-preview" class="video-preview">
         <video id="preview-video" autoplay muted playsinline></video>
     </div>
@@ -637,6 +715,8 @@
         let recordingStartTime = null;
         let recordingInterval = null;
         let currentStream = null;
+        let contextMenu = null;
+        let reactionMenu = null;
 
         // DOM элементы
         const loginScreen = document.getElementById('login-screen');
@@ -661,7 +741,6 @@
         const videoPreview = document.getElementById('video-preview');
         const previewVideo = document.getElementById('preview-video');
 
-        // Управление панелью
         function openFriendsPanel() {
             friendsPanel.classList.add('open');
             mobileOverlay.classList.add('show');
@@ -690,7 +769,6 @@
 
         mobileOverlay.onclick = closeFriendsPanel;
 
-        // Динамическая кнопка
         function updateActionButton() {
             const hasText = messageInput.value.trim().length > 0;
             if (hasText && currentChatUser) {
@@ -704,7 +782,6 @@
             }
         }
 
-        // Голосовая запись с плашкой
         async function startVoiceRecording() {
             if (!currentChatUser || isRecording) return;
             try {
@@ -787,7 +864,6 @@
             cancelVoiceRecording();
         };
 
-        // Видео-кружочек с предпросмотром
         async function startVideoRecording() {
             if (!currentChatUser) return;
             try {
@@ -831,7 +907,6 @@
             }
         }
 
-        // Обработка кнопки
         let pressTimer = null;
         let isLongPress = false;
 
@@ -871,7 +946,6 @@
         actionBtn.addEventListener('touchstart', onActionButtonStart);
         actionBtn.addEventListener('touchend', onActionButtonEnd);
 
-        // Вход
         document.getElementById('join-btn').onclick = async () => {
             const username = document.getElementById('username-input').value.trim();
             if (!username) {
@@ -903,10 +977,18 @@
             selectedChatName.innerText = friend.username;
             removeFriendBtn.style.display = 'block';
             updateActionButton();
+            
+            // Помечаем сообщения как прочитанные
+            socket.emit('mark_as_read', {
+                user_id: currentUser.id,
+                other_user_id: friend.id
+            });
+            
             socket.emit('get_messages', {
                 user_id: currentUser.id,
                 other_user_id: friend.id
             });
+            
             if (window.innerWidth <= 600) closeFriendsPanel();
         }
 
@@ -924,6 +1006,7 @@
                             ${f.online ? 'Online' : 'Offline'}
                         </div>
                     </div>
+                    ${f.unread > 0 ? `<div class="unread-badge">${f.unread}</div>` : ''}
                     <button class="remove-friend-small" onclick="event.stopPropagation(); removeFriend('${f.id}')">✕</button>
                 </div>
             `).join('');
@@ -956,18 +1039,74 @@
             if (currentChatUser) removeFriend(currentChatUser.id);
         };
 
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        function getStatusIcon(status) {
+            if (status === 'sent') return '✓';
+            if (status === 'delivered') return '✓✓';
+            if (status === 'read') return '✓✓';
+            return '';
+        }
+
         function renderMessages() {
             if (!currentMessages.length) {
                 messagesArea.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
                 return;
             }
             messagesArea.innerHTML = currentMessages.map(msg => `
-                <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}">
+                <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}" data-message-id="${msg.id}" data-message-type="${msg.type}" data-message-from="${msg.from_id}">
                     ${msg.from_id !== currentUser?.id ? `<div class="name">${escapeHtml(msg.from)}</div>` : ''}
-                    ${renderMessageContent(msg)}
+                    <div>${renderMessageContent(msg)}</div>
+                    ${msg.edited ? `<span class="edited-badge">edited</span>` : ''}
+                    <div class="reactions">
+                        ${renderReactions(msg)}
+                    </div>
+                    <div class="time">
+                        ${formatTime(msg.timestamp)}
+                        ${msg.from_id === currentUser?.id ? `<span class="status">${getStatusIcon(msg.status)}</span>` : ''}
+                    </div>
                 </div>
             `).join('');
+            
+            // Добавляем обработчики для контекстного меню
+            document.querySelectorAll('.message').forEach(msgEl => {
+                msgEl.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    const messageId = msgEl.dataset.messageId;
+                    const messageType = msgEl.dataset.messageType;
+                    const messageFrom = msgEl.dataset.messageFrom;
+                    
+                    // Только свои сообщения можно редактировать
+                    if (messageFrom === currentUser?.id && messageType === 'text') {
+                        showContextMenu(e.clientX, e.clientY, messageId);
+                    } else if (messageFrom === currentUser?.id) {
+                        showContextMenuForMedia(e.clientX, e.clientY, messageId);
+                    }
+                });
+                
+                // Добавляем обработчик для реакций
+                msgEl.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('reaction')) return;
+                    const messageId = msgEl.dataset.messageId;
+                    showReactionMenu(e.clientX, e.clientY, messageId);
+                });
+            });
+            
             messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function renderReactions(msg) {
+            if (!msg.reactions) return '';
+            const reactions = {};
+            for (const [userId, reaction] of Object.entries(msg.reactions)) {
+                reactions[reaction] = (reactions[reaction] || 0) + 1;
+            }
+            return Object.entries(reactions).map(([reaction, count]) => 
+                `<span class="reaction" data-reaction="${reaction}">${reaction} ${count}</span>`
+            ).join('');
         }
 
         function renderMessageContent(msg) {
@@ -977,6 +1116,114 @@
             if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
             if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
             return msg.content;
+        }
+
+        function showContextMenu(x, y, messageId) {
+            if (contextMenu) contextMenu.remove();
+            contextMenu = document.createElement('div');
+            contextMenu.className = 'context-menu';
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+            contextMenu.innerHTML = `
+                <div class="context-menu-item" data-action="edit">✏️ Edit</div>
+                <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+            `;
+            document.body.appendChild(contextMenu);
+            
+            contextMenu.querySelector('[data-action="edit"]').onclick = () => {
+                editMessage(messageId);
+                contextMenu.remove();
+            };
+            contextMenu.querySelector('[data-action="delete"]').onclick = () => {
+                deleteMessage(messageId);
+                contextMenu.remove();
+            };
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => contextMenu.remove(), { once: true });
+            }, 10);
+        }
+
+        function showContextMenuForMedia(x, y, messageId) {
+            if (contextMenu) contextMenu.remove();
+            contextMenu = document.createElement('div');
+            contextMenu.className = 'context-menu';
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+            contextMenu.innerHTML = `
+                <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+            `;
+            document.body.appendChild(contextMenu);
+            
+            contextMenu.querySelector('[data-action="delete"]').onclick = () => {
+                deleteMessage(messageId);
+                contextMenu.remove();
+            };
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => contextMenu.remove(), { once: true });
+            }, 10);
+        }
+
+        function showReactionMenu(x, y, messageId) {
+            if (reactionMenu) reactionMenu.remove();
+            reactionMenu = document.createElement('div');
+            reactionMenu.className = 'reaction-menu';
+            reactionMenu.style.left = x + 'px';
+            reactionMenu.style.top = (y - 50) + 'px';
+            reactionMenu.innerHTML = `
+                <span class="reaction-emoji" data-reaction="❤️">❤️</span>
+                <span class="reaction-emoji" data-reaction="👍">👍</span>
+                <span class="reaction-emoji" data-reaction="😂">😂</span>
+                <span class="reaction-emoji" data-reaction="😮">😮</span>
+                <span class="reaction-emoji" data-reaction="😢">😢</span>
+                <span class="reaction-emoji" data-reaction="😡">😡</span>
+            `;
+            document.body.appendChild(reactionMenu);
+            
+            reactionMenu.querySelectorAll('.reaction-emoji').forEach(emoji => {
+                emoji.onclick = () => {
+                    addReaction(messageId, emoji.dataset.reaction);
+                    reactionMenu.remove();
+                };
+            });
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => reactionMenu.remove(), { once: true });
+            }, 10);
+        }
+
+        function editMessage(messageId) {
+            const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+            const oldText = messageEl.querySelector('div').innerText;
+            const newText = prompt('Edit message:', oldText);
+            if (newText && newText !== oldText) {
+                socket.emit('edit_message', {
+                    message_id: messageId,
+                    new_content: newText,
+                    user_id: currentUser.id,
+                    chat_with: currentChatUser.id
+                });
+            }
+        }
+
+        function deleteMessage(messageId) {
+            if (confirm('Delete this message?')) {
+                socket.emit('delete_message', {
+                    message_id: messageId,
+                    user_id: currentUser.id,
+                    chat_with: currentChatUser.id
+                });
+            }
+        }
+
+        function addReaction(messageId, reaction) {
+            socket.emit('add_reaction', {
+                message_id: messageId,
+                reaction: reaction,
+                user_id: currentUser.id,
+                chat_with: currentChatUser.id
+            });
         }
 
         function sendMessage() {
@@ -1011,7 +1258,6 @@
             }
         }
 
-        // Поиск
         let searchTimeout;
         searchInput.addEventListener('input', async () => {
             clearTimeout(searchTimeout);
@@ -1066,7 +1312,6 @@
             }
         };
 
-        // Прикрепление файлов
         document.getElementById('attach-file').onclick = () => {
             const input = document.createElement('input');
             input.type = 'file';
@@ -1081,7 +1326,6 @@
             input.click();
         };
 
-        // Socket события
         socket.on('friends_list', (friends) => {
             friendsList = friends || [];
             renderFriends();
@@ -1106,6 +1350,46 @@
             if (currentChatUser && currentChatUser.id === data.from_user_id) {
                 typingIndicator.style.display = data.is_typing ? 'block' : 'none';
                 typingIndicator.innerText = data.is_typing ? `${data.from_username} is typing...` : '';
+            }
+        });
+
+        socket.on('message_edited', (data) => {
+            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+            if (msgEl) {
+                const contentDiv = msgEl.querySelector('div');
+                if (contentDiv) contentDiv.innerHTML = escapeHtml(data.new_content);
+                if (!msgEl.querySelector('.edited-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'edited-badge';
+                    badge.innerText = 'edited';
+                    msgEl.appendChild(badge);
+                }
+            }
+        });
+
+        socket.on('message_deleted', (data) => {
+            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+            if (msgEl) msgEl.remove();
+        });
+
+        socket.on('reaction_added', (data) => {
+            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+            if (msgEl) {
+                let reactionsDiv = msgEl.querySelector('.reactions');
+                if (!reactionsDiv) {
+                    reactionsDiv = document.createElement('div');
+                    reactionsDiv.className = 'reactions';
+                    msgEl.appendChild(reactionsDiv);
+                }
+                renderMessages(); // Перерисовываем для обновления реакций
+            }
+        });
+
+        socket.on('unread_count', (data) => {
+            const friend = friendsList.find(f => f.id === data.from);
+            if (friend) {
+                friend.unread = data.count;
+                renderFriends();
             }
         });
 

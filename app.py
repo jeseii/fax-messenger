@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fax-secret-key'
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB для видео
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -18,6 +18,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Файлы для хранения данных
 USERS_FILE = 'users_data.json'
 FRIENDS_FILE = 'friends_data.json'
+MESSAGES_FILE = 'messages_data.json'
 
 def load_users():
     if os.path.exists(USERS_FILE):
@@ -39,11 +40,22 @@ def save_friends(data):
     with open(FRIENDS_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+def load_messages():
+    if os.path.exists(MESSAGES_FILE):
+        with open(MESSAGES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_messages(data):
+    with open(MESSAGES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 # Загружаем данные
 users_db = load_users()
 friends_db = load_friends()
+private_messages = load_messages()
 active_users = {}
-private_messages = {}
+unread_counts = {}  # user_id -> {other_user_id: count}
 
 @app.route('/')
 def index():
@@ -53,7 +65,6 @@ def index():
 def serve_static(filename):
     return send_from_directory('static', filename)
 
-# МАРШРУТ ДЛЯ assetlinks.json (УБИРАЕТ АДРЕСНУЮ СТРОКУ)
 @app.route('/.well-known/assetlinks.json')
 def serve_assetlinks():
     return send_from_directory('.well-known', 'assetlinks.json')
@@ -139,7 +150,6 @@ def upload_file():
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
     
-    # Сохраняем файл
     original_filename = secure_filename(file.filename)
     ext = original_filename.split('.')[-1] if '.' in original_filename else 'bin'
     new_filename = f"{datetime.now().timestamp()}_{uuid.uuid4().hex[:8]}.{ext}"
@@ -169,8 +179,106 @@ def handle_register(data):
         
         if user_id not in private_messages:
             private_messages[user_id] = {}
+        if user_id not in unread_counts:
+            unread_counts[user_id] = {}
+        
+        # Отправляем непрочитанные сообщения
+        for other_id, count in unread_counts.get(user_id, {}).items():
+            if count > 0:
+                emit('unread_count', {"from": other_id, "count": count}, to=request.sid)
         
         update_friends_list(user_id)
+
+@socketio.on('mark_as_read')
+def handle_mark_as_read(data):
+    user_id = data.get('user_id')
+    other_user_id = data.get('other_user_id')
+    
+    if user_id in unread_counts and other_user_id in unread_counts[user_id]:
+        unread_counts[user_id][other_user_id] = 0
+        save_messages(private_messages)
+    
+    # Уведомляем собеседника о прочтении
+    if other_user_id in active_users:
+        to_sid = active_users[other_user_id]['sid']
+        emit('messages_read', {"by": user_id, "chat_with": other_user_id}, to=to_sid)
+
+@socketio.on('edit_message')
+def handle_edit_message(data):
+    message_id = data.get('message_id')
+    new_content = data.get('new_content')
+    user_id = data.get('user_id')
+    chat_with = data.get('chat_with')
+    
+    # Находим и редактируем сообщение
+    for msg in private_messages.get(user_id, {}).get(chat_with, []):
+        if msg['id'] == message_id and msg['from_id'] == user_id:
+            msg['content'] = new_content
+            msg['edited'] = True
+            break
+    
+    save_messages(private_messages)
+    
+    # Отправляем обновление обоим участникам
+    if user_id in active_users:
+        emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[user_id]['sid'])
+    if chat_with in active_users:
+        emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[chat_with]['sid'])
+
+@socketio.on('delete_message')
+def handle_delete_message(data):
+    message_id = data.get('message_id')
+    user_id = data.get('user_id')
+    chat_with = data.get('chat_with')
+    
+    # Удаляем сообщение у обоих
+    for i, msg in enumerate(private_messages.get(user_id, {}).get(chat_with, [])):
+        if msg['id'] == message_id:
+            private_messages[user_id][chat_with].pop(i)
+            break
+    
+    for i, msg in enumerate(private_messages.get(chat_with, {}).get(user_id, [])):
+        if msg['id'] == message_id:
+            private_messages[chat_with][user_id].pop(i)
+            break
+    
+    save_messages(private_messages)
+    
+    # Отправляем уведомление об удалении
+    if user_id in active_users:
+        emit('message_deleted', {"message_id": message_id}, to=active_users[user_id]['sid'])
+    if chat_with in active_users:
+        emit('message_deleted', {"message_id": message_id}, to=active_users[chat_with]['sid'])
+
+@socketio.on('add_reaction')
+def handle_add_reaction(data):
+    message_id = data.get('message_id')
+    reaction = data.get('reaction')
+    user_id = data.get('user_id')
+    chat_with = data.get('chat_with')
+    
+    # Добавляем реакцию
+    for msg in private_messages.get(user_id, {}).get(chat_with, []):
+        if msg['id'] == message_id:
+            if 'reactions' not in msg:
+                msg['reactions'] = {}
+            msg['reactions'][user_id] = reaction
+            break
+    
+    for msg in private_messages.get(chat_with, {}).get(user_id, []):
+        if msg['id'] == message_id:
+            if 'reactions' not in msg:
+                msg['reactions'] = {}
+            msg['reactions'][user_id] = reaction
+            break
+    
+    save_messages(private_messages)
+    
+    # Отправляем обновление обоим
+    if user_id in active_users:
+        emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[user_id]['sid'])
+    if chat_with in active_users:
+        emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[chat_with]['sid'])
 
 @socketio.on('get_friends')
 def handle_get_friends():
@@ -189,7 +297,8 @@ def handle_get_friends():
             friends_list.append({
                 "id": friend_id,
                 "username": users_db[friend_id]['username'],
-                "online": users_db[friend_id].get('online', False)
+                "online": users_db[friend_id].get('online', False),
+                "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
     
     emit('friends_list', friends_list)
@@ -198,6 +307,10 @@ def handle_get_friends():
 def handle_get_messages(data):
     user_id = data.get('user_id')
     other_user_id = data.get('other_user_id')
+    
+    # Сбрасываем счётчик непрочитанных
+    if user_id in unread_counts:
+        unread_counts[user_id][other_user_id] = 0
     
     if user_id in private_messages and other_user_id in private_messages[user_id]:
         emit('messages_history', private_messages[user_id][other_user_id])
@@ -222,7 +335,8 @@ def handle_private_message(data):
         "from": from_username,
         "from_id": from_user_id,
         "timestamp": datetime.now().isoformat(),
-        "filename": message.get('name', '')
+        "filename": message.get('name', ''),
+        "status": "sent"
     }
     
     # Сохраняем для отправителя
@@ -239,6 +353,13 @@ def handle_private_message(data):
         private_messages[to_user_id][from_user_id] = []
     private_messages[to_user_id][from_user_id].append(message_data)
     
+    # Увеличиваем счётчик непрочитанных для получателя
+    if to_user_id not in unread_counts:
+        unread_counts[to_user_id] = {}
+    unread_counts[to_user_id][from_user_id] = unread_counts[to_user_id].get(from_user_id, 0) + 1
+    
+    save_messages(private_messages)
+    
     # Отправляем получателю (если онлайн)
     if to_user_id in active_users:
         to_sid = active_users[to_user_id]['sid']
@@ -247,13 +368,18 @@ def handle_private_message(data):
             "from_username": from_username,
             "message": message_data
         }, to=to_sid)
+        # Отправляем обновление непрочитанных
+        emit('unread_count', {"from": from_user_id, "count": unread_counts[to_user_id][from_user_id]}, to=to_sid)
     
-    # Отправляем отправителю
+    # Отправляем отправителю (с обновлением статуса)
     emit('new_private_message', {
         "from_user_id": to_user_id,
         "from_username": users_db[to_user_id]['username'],
         "message": message_data
     }, to=request.sid)
+    
+    # Обновляем список друзей у отправителя
+    update_friends_list(from_user_id)
 
 @socketio.on('typing_private')
 def handle_typing_private(data):
@@ -291,7 +417,8 @@ def update_friends_list(user_id):
             friends_list.append({
                 "id": friend_id,
                 "username": users_db[friend_id]['username'],
-                "online": users_db[friend_id].get('online', False)
+                "online": users_db[friend_id].get('online', False),
+                "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
     
     sid = active_users[user_id]['sid']
