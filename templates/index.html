@@ -297,6 +297,29 @@
             margin-bottom: 0.2rem;
         }
 
+        .message img {
+            max-width: 200px;
+            border-radius: 1rem;
+            margin-top: 0.3rem;
+            cursor: pointer;
+        }
+
+        .message video {
+            max-width: 200px;
+            border-radius: 1rem;
+            margin-top: 0.3rem;
+        }
+
+        .message audio {
+            margin-top: 0.3rem;
+            max-width: 200px;
+        }
+
+        .message a {
+            color: #2a9d8f;
+            text-decoration: none;
+        }
+
         .typing-indicator {
             font-size: 0.7rem;
             color: #2a9d8f;
@@ -306,7 +329,7 @@
             flex-shrink: 0;
         }
 
-        /* ===== НИЖНЯЯ ПАНЕЛЬ - ТЕЛЕГРАМ-СТИЛЬ ===== */
+        /* НИЖНЯЯ ПАНЕЛЬ - ТЕЛЕГРАМ-СТИЛЬ */
         .input-area {
             padding: 0.5rem 0.8rem;
             display: flex;
@@ -377,41 +400,6 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
-        }
-
-        /* Меню выбора типа сообщения */
-        .message-type-menu {
-            position: fixed;
-            bottom: 70px;
-            right: 15px;
-            background: #1a1f1f;
-            border-radius: 1rem;
-            overflow: hidden;
-            z-index: 100;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border: 1px solid #2a9d8f;
-            transform: translateY(10px);
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s ease;
-        }
-
-        .message-type-menu.show {
-            transform: translateY(0);
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .menu-item {
-            padding: 0.8rem 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            cursor: pointer;
-        }
-
-        .menu-item:hover {
-            background: #2a3a3a;
         }
 
         .empty-state {
@@ -505,7 +493,7 @@
                 <div class="current-user" id="current-user-name"></div>
             </div>
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 Search users by name...">
+                <input type="text" id="search-input" placeholder="🔍 Search users...">
                 <div id="search-results" class="search-results" style="display: none;"></div>
             </div>
             <div class="friends-list" id="friends-list">
@@ -526,19 +514,13 @@
 
             <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
 
-            <!-- НИЖНЯЯ ПАНЕЛЬ - ТЕЛЕГРАМ-СТИЛЬ -->
+            <!-- НИЖНЯЯ ПАНЕЛЬ -->
             <div class="input-area">
                 <button id="attach-file" class="media-btn" title="Attach file">📎</button>
                 <input type="text" id="message-input" placeholder="Message..." autocomplete="off">
                 <button id="action-btn" class="action-btn" title="Voice message">🎤</button>
             </div>
         </div>
-    </div>
-
-    <!-- Меню выбора типа сообщения -->
-    <div id="message-type-menu" class="message-type-menu">
-        <div class="menu-item" data-type="voice">🎤 Voice message</div>
-        <div class="menu-item" data-type="video">🎥 Video circle</div>
     </div>
 
     <script>
@@ -572,8 +554,6 @@
         const searchResults = document.getElementById('search-results');
         const removeFriendBtn = document.getElementById('remove-friend-btn');
         const mobileOverlay = document.getElementById('mobile-overlay');
-        const messageTypeMenu = document.getElementById('message-type-menu');
-        const attachFileBtn = document.getElementById('attach-file');
 
         // Управление панелью
         function openFriendsPanel() {
@@ -604,105 +584,108 @@
 
         mobileOverlay.onclick = closeFriendsPanel;
 
-        // === ДИНАМИЧЕСКАЯ КНОПКА (Telegram-стиль) ===
+        // Динамическая кнопка
         function updateActionButton() {
             const hasText = messageInput.value.trim().length > 0;
             if (hasText && currentChatUser) {
                 actionBtn.innerHTML = '➤';
                 actionBtn.title = 'Send message';
             } else if (currentChatUser) {
-                actionBtn.innerHTML = currentActionType === 'voice' ? '🎤' : '🎥';
-                actionBtn.title = currentActionType === 'voice' ? 'Voice message (tap menu, hold record)' : 'Video circle (tap menu)';
+                actionBtn.innerHTML = '🎤';
+                actionBtn.title = 'Voice message (hold to record)';
             } else {
                 actionBtn.innerHTML = '🎤';
             }
         }
 
-        // === Меню выбора ===
-        function showMessageTypeMenu() {
-            messageTypeMenu.classList.add('show');
-            setTimeout(() => document.addEventListener('click', closeMenuOnClickOutside), 10);
-        }
-
-        function closeMenuOnClickOutside(e) {
-            if (!messageTypeMenu.contains(e.target) && e.target !== actionBtn) hideMessageTypeMenu();
-        }
-
-        function hideMessageTypeMenu() {
-            messageTypeMenu.classList.remove('show');
-            document.removeEventListener('click', closeMenuOnClickOutside);
-        }
-
-        function setActionType(type) {
-            currentActionType = type;
-            updateActionButton();
-            hideMessageTypeMenu();
-        }
-
-        // === Голосовая запись ===
+        // Голосовая запись
         async function startVoiceRecording() {
             if (!currentChatUser || isRecording) return;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
                 audioChunks = [];
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+                
                 mediaRecorder.onstop = () => {
-                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    uploadAndSend(new File([blob], 'voice.webm'), 'voice');
+                    if (audioChunks.length > 0) {
+                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+                        uploadAndSend(file, 'voice');
+                    }
                     stream.getTracks().forEach(t => t.stop());
                     actionBtn.classList.remove('recording');
                     isRecording = false;
                 };
+                
                 mediaRecorder.start();
                 isRecording = true;
                 actionBtn.classList.add('recording');
                 actionBtn.innerHTML = '⏹️';
-                setTimeout(() => {
-                    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
-                }, 60000);
             } catch (err) {
-                alert('Microphone access denied');
+                console.error('Microphone error:', err);
+                alert('Please allow microphone access');
             }
         }
 
-        // === Видео-кружочек ===
+        function stopVoiceRecording() {
+            if (mediaRecorder && isRecording && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        }
+
+        // Видео-кружочек
         async function startVideoRecording() {
             if (!currentChatUser) return;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                const recorder = new MediaRecorder(stream);
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
                 let chunks = [];
-                recorder.ondataavailable = e => chunks.push(e.data);
+                
+                recorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) chunks.push(e.data);
+                };
+                
                 recorder.onstop = () => {
-                    uploadAndSend(new File([new Blob(chunks, { type: 'video/webm' })], 'video.webm'), 'video');
+                    if (chunks.length > 0) {
+                        const blob = new Blob(chunks, { type: 'video/webm' });
+                        const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
+                        uploadAndSend(file, 'video');
+                    }
                     stream.getTracks().forEach(t => t.stop());
                     actionBtn.classList.remove('recording');
                 };
+                
                 recorder.start();
                 actionBtn.classList.add('recording');
                 actionBtn.innerHTML = '⏹️';
+                
                 setTimeout(() => {
-                    if (recorder.state === 'recording') recorder.stop();
-                    updateActionButton();
+                    if (recorder.state === 'recording') {
+                        recorder.stop();
+                    }
                 }, 10000);
             } catch (err) {
-                alert('Camera access denied');
+                console.error('Camera error:', err);
+                alert('Please allow camera access');
             }
         }
 
-        // === Обработка кнопки (долгое/короткое нажатие) ===
+        // Обработка кнопки (долгое нажатие)
         function onActionButtonStart(e) {
             if (!currentChatUser) return;
             const hasText = messageInput.value.trim().length > 0;
             if (hasText) return;
+            
             e.preventDefault();
             isLongPress = false;
             pressTimer = setTimeout(() => {
                 isLongPress = true;
-                if (currentActionType === 'voice') startVoiceRecording();
-                else if (currentActionType === 'video') startVideoRecording();
-            }, 400);
+                startVoiceRecording();
+            }, 300);
         }
 
         function onActionButtonEnd() {
@@ -711,11 +694,24 @@
                 pressTimer = null;
             }
             if (!currentChatUser) return;
+            
             const hasText = messageInput.value.trim().length > 0;
             if (hasText) {
                 sendMessage();
-            } else if (!isLongPress) {
-                showMessageTypeMenu();
+            } else if (isLongPress) {
+                stopVoiceRecording();
+            } else {
+                // Короткое нажатие - переключение между голосовым и видео
+                if (currentActionType === 'voice') {
+                    currentActionType = 'video';
+                    actionBtn.innerHTML = '🎥';
+                    actionBtn.title = 'Video circle (hold to record)';
+                    startVideoRecording();
+                } else {
+                    currentActionType = 'voice';
+                    actionBtn.innerHTML = '🎤';
+                    actionBtn.title = 'Voice message (hold to record)';
+                }
             }
             isLongPress = false;
         }
@@ -725,12 +721,7 @@
         actionBtn.addEventListener('touchstart', onActionButtonStart);
         actionBtn.addEventListener('touchend', onActionButtonEnd);
 
-        // Пункты меню
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.addEventListener('click', () => setActionType(item.dataset.type));
-        });
-
-        // === Вход ===
+        // Вход
         document.getElementById('join-btn').onclick = async () => {
             const username = document.getElementById('username-input').value.trim();
             if (!username) {
@@ -804,6 +795,7 @@
                     currentChatUser = null;
                     selectedChatName.innerText = 'Select a chat';
                     removeFriendBtn.style.display = 'none';
+                    messageInput.disabled = true;
                     messagesArea.innerHTML = '<div class="empty-state">Choose a friend to start messaging</div>';
                 }
                 loadFriends();
@@ -830,10 +822,10 @@
 
         function renderMessageContent(msg) {
             if (msg.type === 'text') return escapeHtml(msg.content);
-            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" style="max-width:180px; border-radius:0.8rem">`;
-            if (msg.type === 'video') return `<video src="${msg.content}" controls loop muted style="max-width:180px; border-radius:0.8rem"></video>`;
+            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
+            if (msg.type === 'video') return `<video src="${msg.content}" controls loop muted style="max-width:200px; border-radius:1rem"></video>`;
             if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
-            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank" style="color:#2a9d8f">📎 ${msg.filename || 'File'}</a>`;
+            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
             return msg.content;
         }
 
@@ -869,15 +861,15 @@
             }
         }
 
-        // === ПОИСК ===
+        // Поиск
         let searchTimeout;
-        searchInput.addEventListener('input', async (e) => {
+        searchInput.addEventListener('input', async () => {
+            clearTimeout(searchTimeout);
             const query = searchInput.value.trim();
             if (query.length < 2) {
                 searchResults.style.display = 'none';
                 return;
             }
-            clearTimeout(searchTimeout);
             searchTimeout = setTimeout(async () => {
                 try {
                     const res = await fetch('/api/search_users', {
@@ -918,15 +910,14 @@
                     searchInput.value = '';
                     searchResults.style.display = 'none';
                     loadFriends();
-                    alert('Friend added!');
                 }
             } catch (err) {
                 console.error('Add friend error:', err);
             }
         };
 
-        // === Прикрепление файлов ===
-        attachFileBtn.onclick = () => {
+        // Прикрепление файлов
+        document.getElementById('attach-file').onclick = () => {
             const input = document.createElement('input');
             input.type = 'file';
             input.onchange = (e) => {
@@ -940,7 +931,7 @@
             input.click();
         };
 
-        // === Socket события ===
+        // Socket события
         socket.on('friends_list', (friends) => {
             friendsList = friends || [];
             renderFriends();
@@ -968,9 +959,8 @@
             }
         });
 
-        // === Ввод текста ===
         messageInput.addEventListener('input', updateActionButton);
-        
+
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -985,7 +975,6 @@
             return d.innerHTML;
         }
 
-        // Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
         }
