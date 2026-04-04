@@ -327,6 +327,7 @@
             cursor: pointer;
         }
 
+        /* Видео - без бирюзовой подложки */
         .message video {
             width: 150px;
             height: 150px;
@@ -335,6 +336,7 @@
             margin-top: 0.3rem;
             cursor: pointer;
             transition: transform 0.3s;
+            background: transparent;
         }
 
         .message video.zoomed {
@@ -350,6 +352,7 @@
             border-radius: 50%;
         }
 
+        /* Аудио - без бирюзовой подложки */
         .message audio {
             margin-top: 0.3rem;
             max-width: 200px;
@@ -382,7 +385,7 @@
             transform: scale(1.1);
         }
 
-        .reaction-area {
+        .action-area {
             display: inline-block;
             width: 30px;
             margin-left: 5px;
@@ -391,11 +394,11 @@
             transition: opacity 0.2s;
         }
 
-        .message:hover .reaction-area {
+        .message:hover .action-area {
             opacity: 0.7;
         }
 
-        .reaction-area:hover {
+        .action-area:hover {
             opacity: 1;
         }
 
@@ -749,6 +752,8 @@
         let isPaused = false;
         let pausedTime = 0;
         let videoRecorder = null;
+        let isSending = false;
+        let pendingMessages = new Set();
 
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
@@ -840,10 +845,13 @@
                 };
                 
                 mediaRecorder.onstop = () => {
-                    if (audioChunks.length > 0) {
+                    if (audioChunks.length > 0 && !isSending) {
+                        isSending = true;
                         const blob = new Blob(audioChunks, { type: 'audio/webm' });
                         const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
-                        uploadAndSend(file, 'voice');
+                        uploadAndSend(file, 'voice').finally(() => {
+                            isSending = false;
+                        });
                     }
                     if (currentStream) {
                         currentStream.getTracks().forEach(t => t.stop());
@@ -883,10 +891,13 @@
                 };
                 
                 videoRecorder.onstop = () => {
-                    if (chunks.length > 0) {
+                    if (chunks.length > 0 && !isSending) {
+                        isSending = true;
                         const blob = new Blob(chunks, { type: 'video/webm' });
                         const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
-                        uploadAndSend(file, 'video');
+                        uploadAndSend(file, 'video').finally(() => {
+                            isSending = false;
+                        });
                     }
                     if (currentStream) {
                         currentStream.getTracks().forEach(t => t.stop());
@@ -1038,7 +1049,6 @@
                 sendMessage();
             } else if (isLongPress && isRecording) {
                 if (isRecordingLocked) {
-                    // Запись продолжается, панель остаётся
                     actionBtn.classList.remove('locked');
                 } else {
                     stopRecording();
@@ -1184,10 +1194,12 @@
             if (videoElement.classList.contains('zoomed')) {
                 videoElement.classList.remove('zoomed');
                 videoElement.controls = false;
+                videoElement.pause();
             } else {
                 document.querySelectorAll('.message video').forEach(v => v.classList.remove('zoomed'));
                 videoElement.classList.add('zoomed');
                 videoElement.controls = true;
+                videoElement.play();
                 videoElement.addEventListener('ended', () => {
                     videoElement.classList.remove('zoomed');
                     videoElement.controls = false;
@@ -1208,7 +1220,7 @@
                     <div class="reactions">
                         ${renderReactions(msg)}
                     </div>
-                    <span class="reaction-area">😊</span>
+                    <span class="action-area">⚙️</span>
                     <div class="time">
                         ${formatTime(msg.timestamp)}
                         ${msg.from_id === currentUser?.id ? `<span class="status">${getStatusIcon(msg.status)}</span>` : ''}
@@ -1221,17 +1233,14 @@
                 const messageType = msgEl.dataset.messageType;
                 const messageFrom = msgEl.dataset.messageFrom;
                 
-                msgEl.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
+                const actionArea = msgEl.querySelector('.action-area');
+                actionArea.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     if (messageFrom === currentUser?.id) {
                         showContextMenu(e.clientX, e.clientY, messageId, messageType);
+                    } else {
+                        showReactionMenu(e.clientX, e.clientY, messageId);
                     }
-                });
-                
-                const reactionArea = msgEl.querySelector('.reaction-area');
-                reactionArea.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    showReactionMenu(e.clientX, e.clientY, messageId);
                 });
                 
                 const video = msgEl.querySelector('video');
@@ -1270,7 +1279,7 @@
             if (contextMenu) contextMenu.remove();
             contextMenu = document.createElement('div');
             contextMenu.className = 'context-menu';
-            contextMenu.style.left = x + 'px';
+            contextMenu.style.left = (x - 160) + 'px';
             contextMenu.style.top = y + 'px';
             
             if (messageType === 'text') {
@@ -1304,7 +1313,7 @@
             if (reactionMenu) reactionMenu.remove();
             reactionMenu = document.createElement('div');
             reactionMenu.className = 'reaction-menu';
-            reactionMenu.style.left = x + 'px';
+            reactionMenu.style.left = (x - 220) + 'px';
             reactionMenu.style.top = (y - 50) + 'px';
             reactionMenu.innerHTML = `
                 <span class="reaction-emoji" data-reaction="❤️">❤️</span>
@@ -1349,6 +1358,11 @@
                     user_id: currentUser.id,
                     chat_with: currentChatUser.id
                 });
+                const msgIndex = currentMessages.findIndex(m => m.id === messageId);
+                if (msgIndex !== -1) {
+                    currentMessages.splice(msgIndex, 1);
+                    renderMessages();
+                }
             }
         }
 
@@ -1393,21 +1407,6 @@
 
         async function uploadAndSend(file, type) {
             if (!currentChatUser) return;
-            
-            const tempId = Date.now().toString();
-            const tempUrl = URL.createObjectURL(file);
-            const tempMessage = {
-                id: tempId,
-                type: type,
-                content: tempUrl,
-                from: currentUser.username,
-                from_id: currentUser.id,
-                timestamp: new Date().toISOString(),
-                filename: file.name,
-                status: 'sent'
-            };
-            currentMessages.push(tempMessage);
-            renderMessages();
             
             const formData = new FormData();
             formData.append('file', file);
@@ -1501,14 +1500,12 @@
         });
 
         socket.on('new_private_message', (data) => {
-            const tempIndex = currentMessages.findIndex(m => m.content === data.message.content && m.from_id === currentUser?.id && !m.id.startsWith('msg_'));
-            if (tempIndex !== -1) {
-                currentMessages[tempIndex] = data.message;
-            } else {
+            const existingIndex = currentMessages.findIndex(m => m.id === data.message.id);
+            if (existingIndex === -1) {
                 currentMessages.push(data.message);
-            }
-            if (currentChatUser && currentChatUser.id === data.from_user_id) {
-                renderMessages();
+                if (currentChatUser && currentChatUser.id === data.from_user_id) {
+                    renderMessages();
+                }
             }
             loadFriends();
         });
@@ -1523,23 +1520,20 @@
         });
 
         socket.on('message_edited', (data) => {
-            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
-            if (msgEl) {
-                const contentDiv = msgEl.querySelector('div');
-                if (contentDiv) contentDiv.innerHTML = escapeHtml(data.new_content);
-                if (!msgEl.querySelector('.edited-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'edited-badge';
-                    badge.innerText = 'edited';
-                    msgEl.appendChild(badge);
-                }
+            const msgIndex = currentMessages.findIndex(m => m.id === data.message_id);
+            if (msgIndex !== -1) {
+                currentMessages[msgIndex].content = data.new_content;
+                currentMessages[msgIndex].edited = true;
+                renderMessages();
             }
         });
 
         socket.on('message_deleted', (data) => {
-            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
-            if (msgEl) msgEl.remove();
-            currentMessages = currentMessages.filter(m => m.id !== data.message_id);
+            const msgIndex = currentMessages.findIndex(m => m.id === data.message_id);
+            if (msgIndex !== -1) {
+                currentMessages.splice(msgIndex, 1);
+                renderMessages();
+            }
         });
 
         socket.on('reaction_added', (data) => {
