@@ -48,6 +48,10 @@ private_messages = {}
 def index():
     return render_template('index.html')
 
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
@@ -137,9 +141,9 @@ def upload_file():
     
     return jsonify({"url": f"/uploads/{filename}", "name": file.filename})
 
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 @socketio.on('connect')
 def handle_connect():
