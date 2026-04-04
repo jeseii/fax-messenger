@@ -277,7 +277,6 @@
             gap: 0.5rem;
         }
 
-        /* Сообщение */
         .message {
             max-width: 70%;
             padding: 0.5rem 1rem;
@@ -309,7 +308,7 @@
         .message .time {
             font-size: 0.6rem;
             opacity: 0.5;
-            margin-left: 0.5rem;
+            margin-top: 0.2rem;
         }
 
         .message .status {
@@ -348,7 +347,6 @@
             text-decoration: none;
         }
 
-        /* Реакции */
         .reactions {
             display: flex;
             gap: 0.2rem;
@@ -369,7 +367,6 @@
             transform: scale(1.1);
         }
 
-        /* Контекстное меню */
         .context-menu {
             position: fixed;
             background: #1a1f1f;
@@ -394,7 +391,6 @@
             background: #2a3a3a;
         }
 
-        /* Меню реакций */
         .reaction-menu {
             position: fixed;
             background: #1a1f1f;
@@ -492,55 +488,38 @@
         .recording-panel {
             position: fixed;
             bottom: 70px;
-            left: 0;
-            right: 0;
+            left: 50%;
+            transform: translateX(-50%);
             background: #1a1f1f;
-            padding: 1rem;
-            display: flex;
+            padding: 0.5rem 1rem;
+            display: none;
             align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            border-top: 1px solid #2a9d8f;
-            border-bottom: 1px solid #2a9d8f;
-            transform: translateY(100%);
-            transition: transform 0.3s ease;
+            gap: 0.5rem;
+            border-radius: 2rem;
+            border: 1px solid #2a9d8f;
             z-index: 50;
         }
 
         .recording-panel.show {
-            transform: translateY(0);
+            display: flex;
         }
 
         .recording-panel .mic-icon {
-            width: 50px;
-            height: 50px;
+            width: 30px;
+            height: 30px;
             background: #e74c3c;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 0.8rem;
             animation: pulse 0.5s infinite;
         }
 
         .recording-panel .recording-time {
-            font-size: 1.2rem;
+            font-size: 0.9rem;
             font-weight: bold;
             color: white;
-        }
-
-        .recording-panel .recording-hint {
-            font-size: 0.8rem;
-            color: #888;
-        }
-
-        .recording-panel .cancel-recording {
-            background: none;
-            border: none;
-            color: #e74c3c;
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 0.5rem;
         }
 
         .video-preview {
@@ -691,11 +670,7 @@
 
     <div id="recording-panel" class="recording-panel">
         <div class="mic-icon">🎤</div>
-        <div class="recording-info">
-            <div class="recording-time" id="recording-time">0:00</div>
-            <div class="recording-hint">Release to send • Slide to cancel</div>
-        </div>
-        <button id="cancel-recording" class="cancel-recording">✕</button>
+        <div class="recording-time" id="recording-time">0:00</div>
     </div>
 
     <div id="video-preview" class="video-preview">
@@ -737,7 +712,6 @@
         const mobileOverlay = document.getElementById('mobile-overlay');
         const recordingPanel = document.getElementById('recording-panel');
         const recordingTimeSpan = document.getElementById('recording-time');
-        const cancelRecordingBtn = document.getElementById('cancel-recording');
         const videoPreview = document.getElementById('video-preview');
         const previewVideo = document.getElementById('preview-video');
 
@@ -823,6 +797,8 @@
             if (mediaRecorder && isRecording && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
             }
+            hideRecordingPanel();
+            isRecording = false;
         }
 
         function cancelVoiceRecording() {
@@ -849,6 +825,7 @@
                 clearInterval(recordingInterval);
                 recordingInterval = null;
             }
+            isRecording = false;
         }
 
         function startRecordingTimer() {
@@ -859,10 +836,6 @@
                 recordingTimeSpan.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             }, 1000);
         }
-
-        cancelRecordingBtn.onclick = () => {
-            cancelVoiceRecording();
-        };
 
         async function startVideoRecording() {
             if (!currentChatUser) return;
@@ -909,6 +882,7 @@
 
         let pressTimer = null;
         let isLongPress = false;
+        let recordingStarted = false;
 
         function onActionButtonStart(e) {
             if (!currentChatUser) return;
@@ -917,13 +891,15 @@
             
             e.preventDefault();
             isLongPress = false;
+            recordingStarted = false;
             pressTimer = setTimeout(() => {
                 isLongPress = true;
+                recordingStarted = true;
                 startVoiceRecording();
             }, 300);
         }
 
-        function onActionButtonEnd() {
+        function onActionButtonEnd(e) {
             if (pressTimer) {
                 clearTimeout(pressTimer);
                 pressTimer = null;
@@ -933,18 +909,41 @@
             const hasText = messageInput.value.trim().length > 0;
             if (hasText) {
                 sendMessage();
-            } else if (isLongPress) {
+            } else if (isLongPress && recordingStarted) {
                 stopVoiceRecording();
-            } else {
+            } else if (!isLongPress) {
                 startVideoRecording();
             }
             isLongPress = false;
+            recordingStarted = false;
+            hideRecordingPanel();
+        }
+
+        function onActionButtonCancel() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (isRecording) {
+                cancelVoiceRecording();
+            }
+            hideRecordingPanel();
+            isLongPress = false;
+            recordingStarted = false;
         }
 
         actionBtn.addEventListener('mousedown', onActionButtonStart);
         actionBtn.addEventListener('mouseup', onActionButtonEnd);
         actionBtn.addEventListener('touchstart', onActionButtonStart);
         actionBtn.addEventListener('touchend', onActionButtonEnd);
+        actionBtn.addEventListener('touchcancel', onActionButtonCancel);
+        
+        window.addEventListener('mouseup', function(e) {
+            if (e.target !== actionBtn && isRecording) {
+                cancelVoiceRecording();
+                hideRecordingPanel();
+            }
+        });
 
         document.getElementById('join-btn').onclick = async () => {
             const username = document.getElementById('username-input').value.trim();
@@ -978,7 +977,6 @@
             removeFriendBtn.style.display = 'block';
             updateActionButton();
             
-            // Помечаем сообщения как прочитанные
             socket.emit('mark_as_read', {
                 user_id: currentUser.id,
                 other_user_id: friend.id
@@ -1071,7 +1069,6 @@
                 </div>
             `).join('');
             
-            // Добавляем обработчики для контекстного меню
             document.querySelectorAll('.message').forEach(msgEl => {
                 msgEl.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
@@ -1079,7 +1076,6 @@
                     const messageType = msgEl.dataset.messageType;
                     const messageFrom = msgEl.dataset.messageFrom;
                     
-                    // Только свои сообщения можно редактировать
                     if (messageFrom === currentUser?.id && messageType === 'text') {
                         showContextMenu(e.clientX, e.clientY, messageId);
                     } else if (messageFrom === currentUser?.id) {
@@ -1087,7 +1083,6 @@
                     }
                 });
                 
-                // Добавляем обработчик для реакций
                 msgEl.addEventListener('click', (e) => {
                     if (e.target.classList.contains('reaction')) return;
                     const messageId = msgEl.dataset.messageId;
@@ -1373,16 +1368,7 @@
         });
 
         socket.on('reaction_added', (data) => {
-            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
-            if (msgEl) {
-                let reactionsDiv = msgEl.querySelector('.reactions');
-                if (!reactionsDiv) {
-                    reactionsDiv = document.createElement('div');
-                    reactionsDiv.className = 'reactions';
-                    msgEl.appendChild(reactionsDiv);
-                }
-                renderMessages(); // Перерисовываем для обновления реакций
-            }
+            renderMessages();
         });
 
         socket.on('unread_count', (data) => {
