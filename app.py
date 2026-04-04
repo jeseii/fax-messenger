@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fax-secret-key'
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB для видео
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -39,16 +40,15 @@ def save_friends(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 # Загружаем данные
-users_db = load_users()  # user_id -> {"username": ..., "online": False}
-friends_db = load_friends()  # user_id -> [friend_ids]
-active_users = {}  # user_id -> {"username": ..., "sid": ...}
+users_db = load_users()
+friends_db = load_friends()
+active_users = {}
 private_messages = {}
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# ЕДИНСТВЕННЫЙ маршрут для статики (иконки, manifest.json и т.д.)
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory('static', filename)
@@ -58,7 +58,6 @@ def login():
     data = request.json
     username = data.get('username')
     
-    # Проверяем, существует ли пользователь
     user_id = None
     for uid, info in users_db.items():
         if info['username'] == username:
@@ -106,7 +105,6 @@ def add_friend():
         friends_db[user_id].append(friend_id)
         save_friends(friends_db)
         
-        # Уведомляем друга (если онлайн)
         if friend_id in active_users:
             socketio.emit('friend_added', {
                 "friend_id": user_id,
@@ -136,11 +134,19 @@ def upload_file():
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
     
-    filename = secure_filename(f"{datetime.now().timestamp()}_{file.filename}")
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    # Сохраняем файл
+    original_filename = secure_filename(file.filename)
+    ext = original_filename.split('.')[-1] if '.' in original_filename else 'bin'
+    new_filename = f"{datetime.now().timestamp()}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
     file.save(filepath)
     
-    return jsonify({"url": f"/uploads/{filename}", "name": file.filename})
+    file_url = f"/uploads/{new_filename}"
+    return jsonify({"url": file_url, "name": original_filename})
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @socketio.on('connect')
 def handle_connect():
@@ -266,13 +272,11 @@ def handle_disconnect():
             del active_users[user_id]
             save_users(users_db)
             
-            # Обновляем список друзей у всех, у кого этот пользователь был в друзьях
             for uid in active_users:
                 update_friends_list(uid)
             break
 
 def update_friends_list(user_id):
-    """Обновляет список друзей для конкретного пользователя"""
     if user_id not in active_users:
         return
     
@@ -287,10 +291,6 @@ def update_friends_list(user_id):
     
     sid = active_users[user_id]['sid']
     emit('friends_list', friends_list, to=sid)
-
-@app.route('/android-icon-192x192.png')
-def serve_root_icon():
-    return send_from_directory('.', 'android-icon-192x192.png')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
