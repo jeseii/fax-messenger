@@ -288,6 +288,10 @@ def update_friends_list(user_id):
     sid = active_users[user_id]['sid']
     emit('friends_list', friends_list, to=sid)
 
+@app.route('/android-icon-192x192.png')
+def serve_root_icon():
+    return send_from_directory('.', 'android-icon-192x192.png')
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
