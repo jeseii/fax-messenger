@@ -287,6 +287,7 @@
             gap: 0.5rem;
         }
 
+        /* Сообщения - без бирюзовых подложек, по размеру текста */
         .message {
             max-width: 70%;
             padding: 0.5rem 1rem;
@@ -336,6 +337,7 @@
             margin-left: 0.3rem;
         }
 
+        /* Фото, видео, аудио - без бирюзовых подложек */
         .message img {
             max-width: 200px;
             border-radius: 1rem;
@@ -356,6 +358,20 @@
             background: transparent;
             border: none;
             display: block;
+            transition: transform 0.3s;
+        }
+
+        /* Увеличенное видео (при нажатии) */
+        .message video.zoomed {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 250px;
+            height: 250px;
+            z-index: 1000;
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
         }
 
         .message audio {
@@ -517,7 +533,7 @@
             animation: pulse 0.5s infinite;
         }
 
-        /* Плашка записи голосового (маленькая, внизу) */
+        /* Панель записи голосового (маленькая плашка внизу) */
         .voice-recording-panel {
             position: fixed;
             bottom: 70px;
@@ -566,7 +582,7 @@
             font-size: 0.7rem;
         }
 
-        /* Плашка для заблокированной записи (отправить/отмена) */
+        /* Панель для заблокированной записи (отправить/отмена) */
         .locked-panel {
             position: fixed;
             bottom: 70px;
@@ -601,7 +617,7 @@
             background: rgba(231, 76, 60, 0.8);
         }
 
-        /* Превью видео (круглое, большое) */
+        /* Превью видео (большой кружок посередине) */
         .video-preview {
             position: fixed;
             top: 50%;
@@ -685,7 +701,7 @@
                 gap: 0.4rem;
                 min-height: 52px;
             }
-            .video-preview {
+            .video-preview, .message video.zoomed {
                 width: 180px;
                 height: 180px;
             }
@@ -752,20 +768,17 @@
         </div>
     </div>
 
-    <!-- Панель записи голосового -->
     <div id="voice-recording-panel" class="voice-recording-panel">
         <div class="mic-icon">🎤</div>
         <div class="recording-time" id="voice-recording-time">0:00</div>
         <button id="stop-voice-recording" class="stop-btn">⏸️</button>
     </div>
 
-    <!-- Панель для заблокированной записи (отправить/отмена) -->
     <div id="locked-panel" class="locked-panel">
         <button id="send-locked" class="send-btn">Отправить</button>
         <button id="cancel-locked" class="cancel-btn">Отмена</button>
     </div>
 
-    <!-- Превью видео (круглое) -->
     <div id="video-preview" class="video-preview">
         <video id="preview-video" autoplay muted playsinline></video>
     </div>
@@ -819,6 +832,55 @@
         const cancelLockedBtn = document.getElementById('cancel-locked');
         const videoPreview = document.getElementById('video-preview');
         const previewVideo = document.getElementById('preview-video');
+
+        // Сохранение пользователя в localStorage
+        function saveUserToStorage(user) {
+            if (!user) return;
+            localStorage.setItem('fax_user', JSON.stringify({
+                id: user.id,
+                username: user.username,
+                savedAt: Date.now()
+            }));
+        }
+
+        function loadUserFromStorage() {
+            try {
+                const data = localStorage.getItem('fax_user');
+                if (data) {
+                    const user = JSON.parse(data);
+                    if (Date.now() - user.savedAt < 30 * 24 * 60 * 60 * 1000) {
+                        return user;
+                    }
+                    localStorage.removeItem('fax_user');
+                }
+            } catch(e) {}
+            return null;
+        }
+
+        async function tryAutoLogin() {
+            const savedUser = loadUserFromStorage();
+            if (!savedUser) return false;
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: savedUser.username })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    currentUser = { id: data.user_id, username: savedUser.username };
+                    currentUserNameSpan.innerText = savedUser.username;
+                    socket.emit('register', { user_id: currentUser.id, username: currentUser.username });
+                    loginScreen.style.display = 'none';
+                    appContainer.style.display = 'flex';
+                    loadFriends();
+                    return true;
+                }
+            } catch(e) {
+                console.error('Auto login failed:', e);
+            }
+            return false;
+        }
 
         function openFriendsPanel() {
             friendsPanel.classList.add('open');
@@ -932,7 +994,7 @@
             isRecording = false;
         }
 
-        // Видео запись
+        // Видео запись с большим круглым превью
         async function startVideoRecording() {
             if (!currentChatUser || isRecording) return;
             try {
@@ -953,12 +1015,14 @@
                     if (chunks.length > 0) {
                         recordedBlob = new Blob(chunks, { type: 'video/webm' });
                     }
-                    if (currentStream) {
+                    if (currentStream && !isRecordingLocked) {
                         currentStream.getTracks().forEach(t => t.stop());
                         currentStream = null;
                     }
                     previewVideo.srcObject = null;
-                    videoPreview.classList.remove('show');
+                    if (!isRecordingLocked) {
+                        videoPreview.classList.remove('show');
+                    }
                 };
                 
                 videoRecorder.start();
@@ -1019,21 +1083,32 @@
             if (currentMode === 'voice') {
                 stopVoiceRecording();
                 hideVoiceRecordingPanel();
+                showLockedPanel();
+                // Для голосового показываем панель с кнопками, но плашка записи остаётся
+                voiceRecordingPanel.classList.add('show');
             } else {
-                stopVideoRecording();
-                videoPreview.classList.remove('show');
+                // Для видео превью остаётся, добавляем кнопки
+                showLockedPanel();
             }
             
             actionBtn.classList.remove('recording');
-            showLockedPanel();
         }
 
         function cancelLockedRecording() {
             recordedBlob = null;
             hideLockedPanel();
+            if (currentMode === 'voice') {
+                hideVoiceRecordingPanel();
+            } else {
+                videoPreview.classList.remove('show');
+            }
             isRecordingLocked = false;
             actionBtn.classList.remove('locked');
             isRecording = false;
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
         }
 
         function sendLockedRecording() {
@@ -1045,10 +1120,19 @@
                     isSending = false;
                 });
                 hideLockedPanel();
+                if (currentMode === 'voice') {
+                    hideVoiceRecordingPanel();
+                } else {
+                    videoPreview.classList.remove('show');
+                }
                 isRecordingLocked = false;
                 actionBtn.classList.remove('locked');
                 recordedBlob = null;
                 isRecording = false;
+                if (currentStream) {
+                    currentStream.getTracks().forEach(t => t.stop());
+                    currentStream = null;
+                }
             }
         }
 
@@ -1186,6 +1270,7 @@
             if (res.ok) {
                 currentUser = { id: data.user_id, username };
                 currentUserNameSpan.innerText = username;
+                saveUserToStorage(currentUser);
                 socket.emit('register', { user_id: currentUser.id, username });
                 loginScreen.style.display = 'none';
                 appContainer.style.display = 'flex';
@@ -1275,6 +1360,23 @@
             return '';
         }
 
+        function zoomVideo(videoElement) {
+            if (videoElement.classList.contains('zoomed')) {
+                videoElement.classList.remove('zoomed');
+                videoElement.controls = false;
+                videoElement.pause();
+            } else {
+                document.querySelectorAll('.message video').forEach(v => v.classList.remove('zoomed'));
+                videoElement.classList.add('zoomed');
+                videoElement.controls = true;
+                videoElement.play();
+                videoElement.addEventListener('ended', () => {
+                    videoElement.classList.remove('zoomed');
+                    videoElement.controls = false;
+                }, { once: true });
+            }
+        }
+
         function renderMessages() {
             if (!currentMessages.length) {
                 messagesArea.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
@@ -1315,20 +1417,7 @@
                 if (video) {
                     video.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        if (video.classList.contains('zoomed')) {
-                            video.classList.remove('zoomed');
-                            video.controls = false;
-                            video.pause();
-                        } else {
-                            document.querySelectorAll('.message video').forEach(v => v.classList.remove('zoomed'));
-                            video.classList.add('zoomed');
-                            video.controls = true;
-                            video.play();
-                            video.addEventListener('ended', () => {
-                                video.classList.remove('zoomed');
-                                video.controls = false;
-                            }, { once: true });
-                        }
+                        zoomVideo(video);
                     });
                 }
             });
@@ -1648,6 +1737,9 @@
             d.textContent = t;
             return d.innerHTML;
         }
+
+        // Автоматический вход при загрузке
+        tryAutoLogin();
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
