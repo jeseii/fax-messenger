@@ -25,15 +25,6 @@
             color: #e0e0e0;
         }
 
-        /* Glassmorphism эффект */
-        .glass {
-            background: rgba(15, 20, 20, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(42, 157, 143, 0.3);
-        }
-
-        /* Экран входа */
         #login-screen {
             position: fixed;
             top: 0;
@@ -48,12 +39,11 @@
         }
 
         .login-box {
-            background: rgba(26, 31, 31, 0.8);
-            backdrop-filter: blur(20px);
+            background: #1a1f1f;
             padding: 2rem;
             border-radius: 2rem;
             text-align: center;
-            border: 1px solid rgba(42, 157, 143, 0.5);
+            border: 1px solid #2a9d8f;
             width: 90%;
             max-width: 350px;
         }
@@ -64,8 +54,8 @@
         }
 
         .login-box input {
-            background: rgba(30, 42, 42, 0.8);
-            border: 1px solid rgba(42, 157, 143, 0.5);
+            background: #1e2a2a;
+            border: 1px solid #2a9d8f;
             color: white;
             padding: 0.75rem;
             border-radius: 2rem;
@@ -92,12 +82,10 @@
             width: 100%;
         }
 
-        /* ЛЕВАЯ ПАНЕЛЬ */
         .friends-panel {
             width: 280px;
-            background: rgba(15, 20, 20, 0.95);
-            backdrop-filter: blur(10px);
-            border-right: 1px solid rgba(42, 157, 143, 0.3);
+            background: #0f1414;
+            border-right: 1px solid #2a9d8f;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -106,8 +94,8 @@
 
         .friends-header {
             padding: 1rem;
-            border-bottom: 1px solid rgba(42, 157, 143, 0.3);
-            background: rgba(10, 15, 15, 0.8);
+            border-bottom: 1px solid #2a9d8f;
+            background: #0a0f0f;
             cursor: pointer;
         }
 
@@ -124,13 +112,13 @@
 
         .search-box {
             padding: 0.8rem;
-            border-bottom: 1px solid rgba(30, 42, 42, 0.5);
+            border-bottom: 1px solid #1e2a2a;
         }
 
         .search-box input {
             width: 100%;
-            background: rgba(26, 31, 31, 0.8);
-            border: 1px solid rgba(42, 157, 143, 0.3);
+            background: #1a1f1f;
+            border: 1px solid #2a9d8f;
             border-radius: 2rem;
             padding: 0.5rem 0.8rem;
             color: white;
@@ -140,7 +128,7 @@
         .search-results {
             max-height: 200px;
             overflow-y: auto;
-            background: rgba(26, 31, 31, 0.95);
+            background: #1a1f1f;
             border-radius: 1rem;
             margin-top: 0.5rem;
         }
@@ -150,7 +138,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(30, 42, 42, 0.5);
+            border-bottom: 1px solid #1e2a2a;
         }
 
         .add-friend-btn {
@@ -181,11 +169,11 @@
         }
 
         .friend-item:hover {
-            background: rgba(30, 42, 42, 0.5);
+            background: #1e2a2a;
         }
 
         .friend-item.active {
-            background: rgba(42, 157, 143, 0.3);
+            background: #2a9d8f;
             color: white;
         }
 
@@ -244,9 +232,8 @@
 
         .chat-header {
             padding: 1rem;
-            border-bottom: 1px solid rgba(42, 157, 143, 0.3);
-            background: rgba(15, 20, 20, 0.95);
-            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #2a9d8f;
+            background: #0f1414;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -260,7 +247,7 @@
 
         .back-btn {
             display: none;
-            background: rgba(30, 42, 42, 0.8);
+            background: #1e2a2a;
             border: none;
             color: #2a9d8f;
             font-size: 1rem;
@@ -306,7 +293,7 @@
 
         .message.other {
             align-self: flex-start;
-            background: rgba(30, 36, 36, 0.8);
+            background: #1e2424;
             border-bottom-left-radius: 0.25rem;
         }
 
@@ -347,19 +334,27 @@
             object-fit: cover;
             margin-top: 0.3rem;
             cursor: pointer;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s;
         }
 
-        .message video.expanded {
-            width: 300px;
-            height: 300px;
-            border-radius: 1rem;
+        .message video.zoomed {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            width: 80vw;
+            height: 80vw;
+            max-width: 300px;
+            max-height: 300px;
+            z-index: 1000;
+            border-radius: 50%;
         }
 
         .message audio {
             margin-top: 0.3rem;
             max-width: 200px;
             background: transparent;
+            border: none;
         }
 
         .message a {
@@ -388,29 +383,30 @@
         }
 
         .reaction-area {
-            position: absolute;
-            right: -40px;
-            top: 50%;
-            transform: translateY(-50%);
+            display: inline-block;
+            width: 30px;
+            margin-left: 5px;
+            cursor: pointer;
             opacity: 0;
             transition: opacity 0.2s;
-            cursor: pointer;
-            font-size: 1.2rem;
         }
 
         .message:hover .reaction-area {
             opacity: 0.7;
         }
 
+        .reaction-area:hover {
+            opacity: 1;
+        }
+
         .context-menu {
             position: fixed;
-            background: rgba(26, 31, 31, 0.95);
-            backdrop-filter: blur(10px);
+            background: #1a1f1f;
             border-radius: 1rem;
             overflow: hidden;
             z-index: 200;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border: 1px solid rgba(42, 157, 143, 0.3);
+            border: 1px solid #2a9d8f;
             min-width: 150px;
         }
 
@@ -424,20 +420,19 @@
         }
 
         .context-menu-item:hover {
-            background: rgba(42, 58, 58, 0.8);
+            background: #2a3a3a;
         }
 
         .reaction-menu {
             position: fixed;
-            background: rgba(26, 31, 31, 0.95);
-            backdrop-filter: blur(10px);
+            background: #1a1f1f;
             border-radius: 2rem;
             padding: 0.5rem;
             display: flex;
             gap: 0.5rem;
             z-index: 200;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border: 1px solid rgba(42, 157, 143, 0.3);
+            border: 1px solid #2a9d8f;
         }
 
         .reaction-emoji {
@@ -465,15 +460,14 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            border-top: 1px solid rgba(42, 157, 143, 0.3);
-            background: rgba(15, 20, 20, 0.95);
-            backdrop-filter: blur(10px);
+            border-top: 1px solid #2a9d8f;
+            background: #0f1414;
             flex-shrink: 0;
             min-height: 56px;
         }
 
         .media-btn {
-            background: rgba(30, 42, 42, 0.8);
+            background: #1e2a2a;
             border: none;
             font-size: 1.2rem;
             border-radius: 50%;
@@ -493,8 +487,8 @@
 
         #message-input {
             flex: 1;
-            background: rgba(26, 31, 31, 0.8);
-            border: 1px solid rgba(42, 157, 143, 0.3);
+            background: #1a1f1f;
+            border: 1px solid #2a9d8f;
             border-radius: 2rem;
             padding: 0.6rem 1rem;
             color: white;
@@ -517,6 +511,7 @@
             font-size: 1.2rem;
             transition: all 0.2s;
             flex-shrink: 0;
+            position: relative;
         }
 
         .action-btn:active {
@@ -528,19 +523,22 @@
             animation: pulse 0.5s infinite;
         }
 
+        .action-btn.locked {
+            background: #e74c3c;
+        }
+
         .recording-panel {
             position: fixed;
             bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(26, 31, 31, 0.95);
-            backdrop-filter: blur(10px);
+            background: #1a1f1f;
             padding: 0.5rem 1rem;
             display: none;
             align-items: center;
             gap: 0.5rem;
             border-radius: 2rem;
-            border: 1px solid rgba(42, 157, 143, 0.3);
+            border: 1px solid #2a9d8f;
             z-index: 50;
         }
 
@@ -564,6 +562,15 @@
             font-size: 0.9rem;
             font-weight: bold;
             color: white;
+        }
+
+        .recording-panel .pause-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.2rem;
         }
 
         .video-preview {
@@ -652,9 +659,6 @@
                 bottom: 70px;
                 right: 10px;
             }
-            .reaction-area {
-                right: -30px;
-            }
         }
 
         @media (min-width: 601px) {
@@ -718,6 +722,7 @@
     <div id="recording-panel" class="recording-panel">
         <div class="mic-icon">🎤</div>
         <div class="recording-time" id="recording-time">0:00</div>
+        <button id="pause-recording" class="pause-btn" style="display: none;">⏸️</button>
     </div>
 
     <div id="video-preview" class="video-preview">
@@ -739,11 +744,12 @@
         let currentStream = null;
         let contextMenu = null;
         let reactionMenu = null;
-        let isVideoMode = false;
-        let recordingLocked = false;
-        let swipeStartY = 0;
+        let currentMode = 'voice';
+        let isRecordingLocked = false;
+        let isPaused = false;
+        let pausedTime = 0;
+        let videoRecorder = null;
 
-        // DOM элементы
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
         const friendsPanel = document.getElementById('friends-panel');
@@ -762,6 +768,7 @@
         const mobileOverlay = document.getElementById('mobile-overlay');
         const recordingPanel = document.getElementById('recording-panel');
         const recordingTimeSpan = document.getElementById('recording-time');
+        const pauseBtn = document.getElementById('pause-recording');
         const videoPreview = document.getElementById('video-preview');
         const previewVideo = document.getElementById('preview-video');
 
@@ -793,36 +800,31 @@
 
         mobileOverlay.onclick = closeFriendsPanel;
 
-        // Переключение между голосовым и видео
-        function toggleActionMode() {
-            isVideoMode = !isVideoMode;
-            if (isVideoMode) {
-                actionBtn.innerHTML = '🎥';
-                actionBtn.title = 'Video circle (hold to record)';
-            } else {
-                actionBtn.innerHTML = '🎤';
-                actionBtn.title = 'Voice message (hold to record)';
-            }
-        }
-
         function updateActionButton() {
             const hasText = messageInput.value.trim().length > 0;
             if (hasText && currentChatUser) {
                 actionBtn.innerHTML = '➤';
                 actionBtn.title = 'Send message';
-                actionBtn.classList.remove('recording');
             } else if (currentChatUser) {
-                if (isVideoMode) {
-                    actionBtn.innerHTML = '🎥';
-                    actionBtn.title = 'Video circle (hold to record)';
-                } else {
+                if (currentMode === 'voice') {
                     actionBtn.innerHTML = '🎤';
-                    actionBtn.title = 'Voice message (hold to record)';
+                    actionBtn.title = 'Voice message (tap to switch to video, hold to record)';
+                } else {
+                    actionBtn.innerHTML = '🎥';
+                    actionBtn.title = 'Video circle (tap to switch to voice, hold to record)';
                 }
-                actionBtn.classList.remove('recording');
             } else {
                 actionBtn.innerHTML = '🎤';
             }
+        }
+
+        function switchMode() {
+            if (currentMode === 'voice') {
+                currentMode = 'video';
+            } else {
+                currentMode = 'voice';
+            }
+            updateActionButton();
         }
 
         async function startVoiceRecording() {
@@ -849,7 +851,8 @@
                     }
                     hideRecordingPanel();
                     isRecording = false;
-                    recordingLocked = false;
+                    isRecordingLocked = false;
+                    isPaused = false;
                 };
                 
                 mediaRecorder.start();
@@ -857,34 +860,11 @@
                 recordingStartTime = Date.now();
                 showRecordingPanel();
                 startRecordingTimer();
+                pauseBtn.style.display = 'none';
             } catch (err) {
                 console.error('Microphone error:', err);
                 alert('Please allow microphone access');
             }
-        }
-
-        function stopVoiceRecording() {
-            if (mediaRecorder && isRecording && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-            }
-            hideRecordingPanel();
-            isRecording = false;
-            recordingLocked = false;
-        }
-
-        function cancelVoiceRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.onstop = () => {};
-                mediaRecorder.stop();
-                audioChunks = [];
-            }
-            if (currentStream) {
-                currentStream.getTracks().forEach(t => t.stop());
-                currentStream = null;
-            }
-            hideRecordingPanel();
-            isRecording = false;
-            recordingLocked = false;
         }
 
         async function startVideoRecording() {
@@ -895,14 +875,14 @@
                 currentStream = stream;
                 previewVideo.srcObject = stream;
                 
-                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                videoRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
                 let chunks = [];
                 
-                recorder.ondataavailable = (e) => {
+                videoRecorder.ondataavailable = (e) => {
                     if (e.data.size > 0) chunks.push(e.data);
                 };
                 
-                recorder.onstop = () => {
+                videoRecorder.onstop = () => {
                     if (chunks.length > 0) {
                         const blob = new Blob(chunks, { type: 'video/webm' });
                         const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
@@ -915,21 +895,15 @@
                     previewVideo.srcObject = null;
                     videoPreview.classList.remove('show');
                     isRecording = false;
-                    recordingLocked = false;
+                    isRecordingLocked = false;
                 };
                 
-                recorder.start();
+                videoRecorder.start();
                 isRecording = true;
                 recordingStartTime = Date.now();
                 showRecordingPanel();
                 startRecordingTimer();
-                
-                setTimeout(() => {
-                    if (recorder.state === 'recording' && !recordingLocked) {
-                        recorder.stop();
-                        hideRecordingPanel();
-                    }
-                }, 60000);
+                pauseBtn.style.display = 'block';
             } catch (err) {
                 console.error('Camera error:', err);
                 alert('Please allow camera access');
@@ -937,16 +911,60 @@
             }
         }
 
-        function stopVideoRecording() {
-            if (currentStream) {
-                const recorder = currentStream;
-                if (recorder.state === 'recording') {
-                    recorder.stop();
-                }
+        function stopRecording() {
+            if (mediaRecorder && isRecording && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            if (videoRecorder && isRecording && videoRecorder.state === 'recording') {
+                videoRecorder.stop();
             }
             hideRecordingPanel();
             isRecording = false;
-            recordingLocked = false;
+            isRecordingLocked = false;
+            isPaused = false;
+        }
+
+        function cancelRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = () => {};
+                mediaRecorder.stop();
+                audioChunks = [];
+            }
+            if (videoRecorder && isRecording) {
+                videoRecorder.onstop = () => {};
+                videoRecorder.stop();
+            }
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+            hideRecordingPanel();
+            isRecording = false;
+            isRecordingLocked = false;
+            isPaused = false;
+            videoPreview.classList.remove('show');
+        }
+
+        function pauseRecording() {
+            if (isPaused) {
+                if (mediaRecorder && mediaRecorder.state === 'paused') {
+                    mediaRecorder.resume();
+                }
+                if (videoRecorder && videoRecorder.state === 'paused') {
+                    videoRecorder.resume();
+                }
+                pauseBtn.innerHTML = '⏸️';
+                isPaused = false;
+            } else {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.pause();
+                }
+                if (videoRecorder && videoRecorder.state === 'recording') {
+                    videoRecorder.pause();
+                }
+                pauseBtn.innerHTML = '▶️';
+                isPaused = true;
+            }
         }
 
         function showRecordingPanel() {
@@ -959,8 +977,6 @@
                 clearInterval(recordingInterval);
                 recordingInterval = null;
             }
-            isRecording = false;
-            recordingLocked = false;
         }
 
         function startRecordingTimer() {
@@ -972,11 +988,11 @@
             }, 1000);
         }
 
-        // Обработка кнопки
+        pauseBtn.onclick = pauseRecording;
+
         let pressTimer = null;
         let isLongPress = false;
-        let recordingStarted = false;
-        let startY = 0;
+        let touchStartY = 0;
 
         function onActionButtonStart(e) {
             if (!currentChatUser) return;
@@ -985,34 +1001,28 @@
             
             e.preventDefault();
             isLongPress = false;
-            recordingStarted = false;
-            recordingLocked = false;
             
             if (e.touches) {
-                startY = e.touches[0].clientY;
+                touchStartY = e.touches[0].clientY;
             }
             
             pressTimer = setTimeout(() => {
                 isLongPress = true;
-                recordingStarted = true;
-                if (isVideoMode) {
-                    startVideoRecording();
-                } else {
+                if (currentMode === 'voice') {
                     startVoiceRecording();
+                } else {
+                    startVideoRecording();
                 }
             }, 300);
         }
 
         function onActionButtonMove(e) {
-            if (!isRecording || recordingLocked || !e.touches) return;
+            if (!isRecording || !e.touches) return;
             
-            const currentY = e.touches[0].clientY;
-            const diffY = startY - currentY;
-            
-            if (diffY > 50) {
-                recordingLocked = true;
-                // Вибрация для обратной связи (если поддерживается)
-                if (navigator.vibrate) navigator.vibrate(50);
+            const deltaY = touchStartY - e.touches[0].clientY;
+            if (deltaY > 50 && !isRecordingLocked) {
+                isRecordingLocked = true;
+                actionBtn.classList.add('locked');
             }
         }
 
@@ -1026,22 +1036,17 @@
             const hasText = messageInput.value.trim().length > 0;
             if (hasText) {
                 sendMessage();
-            } else if (isLongPress && recordingStarted) {
-                if (recordingLocked) {
-                    // Если запись заблокирована, продолжаем запись (не останавливаем)
+            } else if (isLongPress && isRecording) {
+                if (isRecordingLocked) {
+                    // Запись продолжается, панель остаётся
+                    actionBtn.classList.remove('locked');
                 } else {
-                    if (isVideoMode) {
-                        stopVideoRecording();
-                    } else {
-                        stopVoiceRecording();
-                    }
+                    stopRecording();
                 }
             } else if (!isLongPress) {
-                toggleActionMode();
-                updateActionButton();
+                switchMode();
             }
             isLongPress = false;
-            recordingStarted = false;
         }
 
         function onActionButtonCancel() {
@@ -1050,12 +1055,11 @@
                 pressTimer = null;
             }
             if (isRecording) {
-                cancelVoiceRecording();
+                cancelRecording();
             }
             hideRecordingPanel();
             isLongPress = false;
-            recordingStarted = false;
-            recordingLocked = false;
+            isRecordingLocked = false;
         }
 
         actionBtn.addEventListener('mousedown', onActionButtonStart);
@@ -1066,12 +1070,8 @@
         actionBtn.addEventListener('touchcancel', onActionButtonCancel);
         
         window.addEventListener('mouseup', function(e) {
-            if (e.target !== actionBtn && isRecording && !recordingLocked) {
-                if (isVideoMode) {
-                    stopVideoRecording();
-                } else {
-                    stopVoiceRecording();
-                }
+            if (e.target !== actionBtn && isRecording && !isRecordingLocked) {
+                cancelRecording();
                 hideRecordingPanel();
             }
         });
@@ -1180,6 +1180,21 @@
             return '';
         }
 
+        function zoomVideo(videoElement) {
+            if (videoElement.classList.contains('zoomed')) {
+                videoElement.classList.remove('zoomed');
+                videoElement.controls = false;
+            } else {
+                document.querySelectorAll('.message video').forEach(v => v.classList.remove('zoomed'));
+                videoElement.classList.add('zoomed');
+                videoElement.controls = true;
+                videoElement.addEventListener('ended', () => {
+                    videoElement.classList.remove('zoomed');
+                    videoElement.controls = false;
+                }, { once: true });
+            }
+        }
+
         function renderMessages() {
             if (!currentMessages.length) {
                 messagesArea.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
@@ -1193,7 +1208,7 @@
                     <div class="reactions">
                         ${renderReactions(msg)}
                     </div>
-                    <div class="reaction-area" data-message-id="${msg.id}">😊</div>
+                    <span class="reaction-area">😊</span>
                     <div class="time">
                         ${formatTime(msg.timestamp)}
                         ${msg.from_id === currentUser?.id ? `<span class="status">${getStatusIcon(msg.status)}</span>` : ''}
@@ -1202,37 +1217,29 @@
             `).join('');
             
             document.querySelectorAll('.message').forEach(msgEl => {
+                const messageId = msgEl.dataset.messageId;
+                const messageType = msgEl.dataset.messageType;
+                const messageFrom = msgEl.dataset.messageFrom;
+                
                 msgEl.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
-                    const messageId = msgEl.dataset.messageId;
-                    const messageType = msgEl.dataset.messageType;
-                    const messageFrom = msgEl.dataset.messageFrom;
-                    
                     if (messageFrom === currentUser?.id) {
                         showContextMenu(e.clientX, e.clientY, messageId, messageType);
                     }
                 });
                 
                 const reactionArea = msgEl.querySelector('.reaction-area');
-                if (reactionArea) {
-                    reactionArea.onclick = (e) => {
-                        e.stopPropagation();
-                        const messageId = reactionArea.dataset.messageId;
-                        showReactionMenu(e.clientX, e.clientY, messageId);
-                    };
-                }
+                reactionArea.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showReactionMenu(e.clientX, e.clientY, messageId);
+                });
                 
-                const videoElement = msgEl.querySelector('video');
-                if (videoElement) {
-                    videoElement.onclick = () => {
-                        videoElement.classList.toggle('expanded');
-                        if (videoElement.classList.contains('expanded')) {
-                            videoElement.play();
-                        }
-                    };
-                    videoElement.onended = () => {
-                        videoElement.classList.remove('expanded');
-                    };
+                const video = msgEl.querySelector('video');
+                if (video) {
+                    video.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        zoomVideo(video);
+                    });
                 }
             });
             
@@ -1253,8 +1260,8 @@
         function renderMessageContent(msg) {
             if (msg.type === 'text') return escapeHtml(msg.content);
             if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
-            if (msg.type === 'video') return `<video src="${msg.content}" controls playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover"></video>`;
-            if (msg.type === 'voice') return `<audio src="${msg.content}" controls style="background:transparent"></audio>`;
+            if (msg.type === 'video') return `<video src="${msg.content}" playsinline></video>`;
+            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
             if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
             return msg.content;
         }
@@ -1266,23 +1273,27 @@
             contextMenu.style.left = x + 'px';
             contextMenu.style.top = y + 'px';
             
-            let menuHtml = '<div class="context-menu-item" data-action="delete">🗑️ Delete</div>';
             if (messageType === 'text') {
-                menuHtml = '<div class="context-menu-item" data-action="edit">✏️ Edit</div>' + menuHtml;
-            }
-            contextMenu.innerHTML = menuHtml;
-            document.body.appendChild(contextMenu);
-            
-            if (messageType === 'text') {
+                contextMenu.innerHTML = `
+                    <div class="context-menu-item" data-action="edit">✏️ Edit</div>
+                    <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+                `;
                 contextMenu.querySelector('[data-action="edit"]').onclick = () => {
                     editMessage(messageId);
                     contextMenu.remove();
                 };
+            } else {
+                contextMenu.innerHTML = `
+                    <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+                `;
             }
+            
             contextMenu.querySelector('[data-action="delete"]').onclick = () => {
                 deleteMessage(messageId);
                 contextMenu.remove();
             };
+            
+            document.body.appendChild(contextMenu);
             
             setTimeout(() => {
                 document.addEventListener('click', () => contextMenu.remove(), { once: true });
@@ -1338,9 +1349,6 @@
                     user_id: currentUser.id,
                     chat_with: currentChatUser.id
                 });
-                // Удаляем локально сразу
-                currentMessages = currentMessages.filter(m => m.id !== messageId);
-                renderMessages();
             }
         }
 
@@ -1361,6 +1369,19 @@
             const text = messageInput.value.trim();
             if (!text) return;
             
+            const tempId = Date.now().toString();
+            const tempMessage = {
+                id: tempId,
+                type: 'text',
+                content: text,
+                from: currentUser.username,
+                from_id: currentUser.id,
+                timestamp: new Date().toISOString(),
+                status: 'sent'
+            };
+            currentMessages.push(tempMessage);
+            renderMessages();
+            
             socket.emit('private_message', {
                 from_user_id: currentUser.id,
                 to_user_id: currentChatUser.id,
@@ -1372,6 +1393,22 @@
 
         async function uploadAndSend(file, type) {
             if (!currentChatUser) return;
+            
+            const tempId = Date.now().toString();
+            const tempUrl = URL.createObjectURL(file);
+            const tempMessage = {
+                id: tempId,
+                type: type,
+                content: tempUrl,
+                from: currentUser.username,
+                from_id: currentUser.id,
+                timestamp: new Date().toISOString(),
+                filename: file.name,
+                status: 'sent'
+            };
+            currentMessages.push(tempMessage);
+            renderMessages();
+            
             const formData = new FormData();
             formData.append('file', file);
             const res = await fetch('/upload', { method: 'POST', body: formData });
@@ -1464,8 +1501,13 @@
         });
 
         socket.on('new_private_message', (data) => {
-            if (currentChatUser && currentChatUser.id === data.from_user_id) {
+            const tempIndex = currentMessages.findIndex(m => m.content === data.message.content && m.from_id === currentUser?.id && !m.id.startsWith('msg_'));
+            if (tempIndex !== -1) {
+                currentMessages[tempIndex] = data.message;
+            } else {
                 currentMessages.push(data.message);
+            }
+            if (currentChatUser && currentChatUser.id === data.from_user_id) {
                 renderMessages();
             }
             loadFriends();
@@ -1514,12 +1556,11 @@
 
         socket.on('messages_read', (data) => {
             if (currentChatUser && currentChatUser.id === data.by) {
-                // Обновляем статусы сообщений
-                currentMessages.forEach(msg => {
-                    if (msg.from_id === currentUser.id) {
+                for (const msg of currentMessages) {
+                    if (msg.from_id === currentUser.id && msg.status !== 'read') {
                         msg.status = 'read';
                     }
-                });
+                }
                 renderMessages();
             }
         });
