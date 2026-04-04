@@ -78,7 +78,7 @@
         }
 
         /* Основное приложение */
-        #app-container {
+        .app-container {
             display: flex;
             height: 100%;
             width: 100%;
@@ -304,10 +304,14 @@
             cursor: pointer;
         }
 
+        /* Круглое видео (как в Telegram) */
         .message video {
-            max-width: 200px;
-            border-radius: 1rem;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
             margin-top: 0.3rem;
+            background: #1e2424;
         }
 
         .message audio {
@@ -329,7 +333,7 @@
             flex-shrink: 0;
         }
 
-        /* НИЖНЯЯ ПАНЕЛЬ - ТЕЛЕГРАМ-СТИЛЬ */
+        /* НИЖНЯЯ ПАНЕЛЬ */
         .input-area {
             padding: 0.5rem 0.8rem;
             display: flex;
@@ -392,20 +396,95 @@
             transform: scale(0.95);
         }
 
-        .action-btn.recording {
-            background: #e74c3c !important;
+        /* ПЛАШКА ЗАПИСИ ГОЛОСОВОГО (как в Telegram) */
+        .recording-panel {
+            position: fixed;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            background: #1a1f1f;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            border-top: 1px solid #2a9d8f;
+            border-bottom: 1px solid #2a9d8f;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 50;
+        }
+
+        .recording-panel.show {
+            transform: translateY(0);
+        }
+
+        .recording-panel .mic-icon {
+            width: 50px;
+            height: 50px;
+            background: #e74c3c;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
             animation: pulse 0.5s infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        .recording-panel .recording-time {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .recording-panel .recording-hint {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .recording-panel .cancel-recording {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        /* ПРЕДПРОСМОТР ВИДЕО (круглый) */
+        .video-preview {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #1a1f1f;
+            border: 2px solid #2a9d8f;
+            z-index: 50;
+            display: none;
+        }
+
+        .video-preview.show {
+            display: block;
+        }
+
+        .video-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .empty-state {
             text-align: center;
             padding: 2rem;
             color: #666;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
         }
 
         /* Мобильные стили */
@@ -462,6 +541,13 @@
                 gap: 0.4rem;
                 min-height: 52px;
             }
+
+            .video-preview {
+                width: 80px;
+                height: 80px;
+                bottom: 70px;
+                right: 10px;
+            }
         }
 
         @media (min-width: 601px) {
@@ -486,7 +572,7 @@
         </div>
     </div>
 
-    <div id="app-container" style="display:none">
+    <div id="app-container" class="app-container" style="display:none">
         <div id="friends-panel" class="friends-panel">
             <div class="friends-header" id="friends-header">
                 <h3>📠 FAX</h3>
@@ -523,6 +609,21 @@
         </div>
     </div>
 
+    <!-- ПЛАШКА ЗАПИСИ ГОЛОСОВОГО -->
+    <div id="recording-panel" class="recording-panel">
+        <div class="mic-icon">🎤</div>
+        <div class="recording-info">
+            <div class="recording-time" id="recording-time">0:00</div>
+            <div class="recording-hint">Release to send • Slide to cancel</div>
+        </div>
+        <button id="cancel-recording" class="cancel-recording">✕</button>
+    </div>
+
+    <!-- ПРЕДПРОСМОТР ВИДЕО -->
+    <div id="video-preview" class="video-preview">
+        <video id="preview-video" autoplay muted playsinline></video>
+    </div>
+
     <script>
         const socket = io();
 
@@ -533,9 +634,9 @@
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
-        let currentActionType = 'voice';
-        let pressTimer = null;
-        let isLongPress = false;
+        let recordingStartTime = null;
+        let recordingInterval = null;
+        let currentStream = null;
 
         // DOM элементы
         const loginScreen = document.getElementById('login-screen');
@@ -554,6 +655,11 @@
         const searchResults = document.getElementById('search-results');
         const removeFriendBtn = document.getElementById('remove-friend-btn');
         const mobileOverlay = document.getElementById('mobile-overlay');
+        const recordingPanel = document.getElementById('recording-panel');
+        const recordingTimeSpan = document.getElementById('recording-time');
+        const cancelRecordingBtn = document.getElementById('cancel-recording');
+        const videoPreview = document.getElementById('video-preview');
+        const previewVideo = document.getElementById('preview-video');
 
         // Управление панелью
         function openFriendsPanel() {
@@ -598,11 +704,12 @@
             }
         }
 
-        // Голосовая запись
+        // Голосовая запись с плашкой
         async function startVoiceRecording() {
             if (!currentChatUser || isRecording) return;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                currentStream = stream;
                 mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
                 audioChunks = [];
                 
@@ -616,15 +723,19 @@
                         const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
                         uploadAndSend(file, 'voice');
                     }
-                    stream.getTracks().forEach(t => t.stop());
-                    actionBtn.classList.remove('recording');
+                    if (currentStream) {
+                        currentStream.getTracks().forEach(t => t.stop());
+                        currentStream = null;
+                    }
+                    hideRecordingPanel();
                     isRecording = false;
                 };
                 
                 mediaRecorder.start();
                 isRecording = true;
-                actionBtn.classList.add('recording');
-                actionBtn.innerHTML = '⏹️';
+                recordingStartTime = Date.now();
+                showRecordingPanel();
+                startRecordingTimer();
             } catch (err) {
                 console.error('Microphone error:', err);
                 alert('Please allow microphone access');
@@ -637,11 +748,54 @@
             }
         }
 
-        // Видео-кружочек
+        function cancelVoiceRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = () => {};
+                mediaRecorder.stop();
+                audioChunks = [];
+            }
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+            hideRecordingPanel();
+            isRecording = false;
+        }
+
+        function showRecordingPanel() {
+            recordingPanel.classList.add('show');
+        }
+
+        function hideRecordingPanel() {
+            recordingPanel.classList.remove('show');
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+                recordingInterval = null;
+            }
+        }
+
+        function startRecordingTimer() {
+            recordingInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                recordingTimeSpan.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        cancelRecordingBtn.onclick = () => {
+            cancelVoiceRecording();
+        };
+
+        // Видео-кружочек с предпросмотром
         async function startVideoRecording() {
             if (!currentChatUser) return;
             try {
+                videoPreview.classList.add('show');
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                currentStream = stream;
+                previewVideo.srcObject = stream;
+                
                 const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
                 let chunks = [];
                 
@@ -655,13 +809,15 @@
                         const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
                         uploadAndSend(file, 'video');
                     }
-                    stream.getTracks().forEach(t => t.stop());
-                    actionBtn.classList.remove('recording');
+                    if (currentStream) {
+                        currentStream.getTracks().forEach(t => t.stop());
+                        currentStream = null;
+                    }
+                    previewVideo.srcObject = null;
+                    videoPreview.classList.remove('show');
                 };
                 
                 recorder.start();
-                actionBtn.classList.add('recording');
-                actionBtn.innerHTML = '⏹️';
                 
                 setTimeout(() => {
                     if (recorder.state === 'recording') {
@@ -671,10 +827,14 @@
             } catch (err) {
                 console.error('Camera error:', err);
                 alert('Please allow camera access');
+                videoPreview.classList.remove('show');
             }
         }
 
-        // Обработка кнопки (долгое нажатие)
+        // Обработка кнопки
+        let pressTimer = null;
+        let isLongPress = false;
+
         function onActionButtonStart(e) {
             if (!currentChatUser) return;
             const hasText = messageInput.value.trim().length > 0;
@@ -701,17 +861,7 @@
             } else if (isLongPress) {
                 stopVoiceRecording();
             } else {
-                // Короткое нажатие - переключение между голосовым и видео
-                if (currentActionType === 'voice') {
-                    currentActionType = 'video';
-                    actionBtn.innerHTML = '🎥';
-                    actionBtn.title = 'Video circle (hold to record)';
-                    startVideoRecording();
-                } else {
-                    currentActionType = 'voice';
-                    actionBtn.innerHTML = '🎤';
-                    actionBtn.title = 'Voice message (hold to record)';
-                }
+                startVideoRecording();
             }
             isLongPress = false;
         }
@@ -823,7 +973,7 @@
         function renderMessageContent(msg) {
             if (msg.type === 'text') return escapeHtml(msg.content);
             if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
-            if (msg.type === 'video') return `<video src="${msg.content}" controls loop muted style="max-width:200px; border-radius:1rem"></video>`;
+            if (msg.type === 'video') return `<video src="${msg.content}" controls loop playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover"></video>`;
             if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
             if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
             return msg.content;
