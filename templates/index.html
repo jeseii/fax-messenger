@@ -92,6 +92,7 @@
             flex-direction: column; 
             background: var(--dark); 
             position: relative; 
+            height: 100vh;
         }
         
         /* Header */
@@ -123,6 +124,7 @@
             display: flex;
             align-items: center;
             gap: 1rem;
+            flex-shrink: 0;
         }
         
         .back-btn {
@@ -218,7 +220,8 @@
             padding: 1rem; 
             display: flex; 
             flex-direction: column; 
-            gap: 0.5rem; 
+            gap: 0.5rem;
+            min-height: 0;
         }
         
         .message {
@@ -250,7 +253,7 @@
             margin-bottom: 0.2rem;
         }
         
-        .message img { max-width: 100%; border-radius: 0.8rem; margin-top: 0.3rem; }
+        .message img { max-width: 100%; border-radius: 0.8rem; margin-top: 0.3rem; display: block; }
         .message video { max-width: 180px; border-radius: 0.8rem; margin-top: 0.3rem; }
         .message audio { margin-top: 0.3rem; max-width: 180px; }
         
@@ -266,7 +269,7 @@
         
         .ticks { color: #4fc3f7; font-weight: bold; }
         
-        /* Input Area */
+        /* Input Area - FIXED AT BOTTOM */
         .input-area {
             padding: 0.5rem 0.8rem;
             display: flex;
@@ -274,6 +277,7 @@
             gap: 0.5rem;
             border-top: 1px solid var(--turquoise);
             background: var(--panel);
+            flex-shrink: 0;
         }
         
         .attach-btn {
@@ -409,6 +413,7 @@
                 <div class="empty-state">Choose a friend to start messaging</div>
             </div>
             
+            <!-- Input Area - ALWAYS VISIBLE AT BOTTOM -->
             <div class="input-area">
                 <button class="attach-btn" id="attach-file" title="Attach file">📎</button>
                 <input type="text" id="msg-input" placeholder="Message..." autocomplete="off" disabled>
@@ -749,15 +754,16 @@
 
         // Load QR
         async function loadQR() {
-            const res = await fetch('/api/qr');
-            const data = await res.json();
-            const img = document.createElement('img');
-            img.src = data.qr;
-            document.getElementById('qrcode').appendChild(img);
+            try {
+                const res = await fetch('/api/qr');
+                const data = await res.json();
+                const img = document.createElement('img');
+                img.src = data.qr;
+                document.getElementById('qrcode').appendChild(img);
+            } catch(e) {}
         }
         
-        // Try load QR if needed
-        loadQR().catch(() => {});
+        loadQR();
     </script>
 </body>
 </html>
