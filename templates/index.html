@@ -287,7 +287,6 @@
             gap: 0.5rem;
         }
 
-        /* Сообщения - без бирюзовых подложек, по размеру текста */
         .message {
             max-width: 70%;
             padding: 0.5rem 1rem;
@@ -337,7 +336,6 @@
             margin-left: 0.3rem;
         }
 
-        /* Фото, видео, аудио - без бирюзовых подложек */
         .message img {
             max-width: 200px;
             border-radius: 1rem;
@@ -361,7 +359,6 @@
             transition: transform 0.3s;
         }
 
-        /* Увеличенное видео (при нажатии) */
         .message video.zoomed {
             position: fixed;
             top: 50%;
@@ -391,15 +388,20 @@
             gap: 0.2rem;
             margin-top: 0.2rem;
             flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         .reaction {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.15);
             border-radius: 1rem;
             padding: 0.1rem 0.4rem;
             font-size: 0.7rem;
             cursor: pointer;
             transition: transform 0.1s;
+        }
+
+        .reaction:hover {
+            transform: scale(1.1);
         }
 
         .action-area {
@@ -415,6 +417,7 @@
             opacity: 0.7;
         }
 
+        /* Меню редактирования/удаления — СЛЕВА */
         .context-menu {
             position: fixed;
             background: rgba(26, 31, 31, 0.95);
@@ -440,6 +443,7 @@
             background: rgba(42, 58, 58, 0.8);
         }
 
+        /* Меню реакций — СПРАВА */
         .reaction-menu {
             position: fixed;
             background: rgba(26, 31, 31, 0.95);
@@ -533,7 +537,7 @@
             animation: pulse 0.5s infinite;
         }
 
-        /* Панель записи голосового (маленькая плашка внизу) */
+        /* Панель записи голосового */
         .voice-recording-panel {
             position: fixed;
             bottom: 70px;
@@ -582,12 +586,11 @@
             font-size: 0.7rem;
         }
 
-        /* Панель для заблокированной записи (отправить/отмена) */
+        /* Панель для заблокированной записи — рядом с плашкой */
         .locked-panel {
             position: fixed;
             bottom: 70px;
-            left: 50%;
-            transform: translateX(-50%);
+            right: 20px;
             background: rgba(26, 31, 31, 0.95);
             backdrop-filter: blur(20px);
             padding: 0.5rem 1rem;
@@ -707,6 +710,10 @@
             }
             .message {
                 max-width: 85%;
+            }
+            .locked-panel {
+                bottom: 120px;
+                right: 10px;
             }
         }
 
@@ -870,6 +877,7 @@
                 if (res.ok) {
                     currentUser = { id: data.user_id, username: savedUser.username };
                     currentUserNameSpan.innerText = savedUser.username;
+                    saveUserToStorage(currentUser);
                     socket.emit('register', { user_id: currentUser.id, username: currentUser.username });
                     loginScreen.style.display = 'none';
                     appContainer.style.display = 'flex';
@@ -994,7 +1002,7 @@
             isRecording = false;
         }
 
-        // Видео запись с большим круглым превью
+        // Видео запись
         async function startVideoRecording() {
             if (!currentChatUser || isRecording) return;
             try {
@@ -1081,13 +1089,11 @@
             isRecordingLocked = true;
             
             if (currentMode === 'voice') {
-                stopVoiceRecording();
-                hideVoiceRecordingPanel();
+                // Для голосового: плашка остаётся, кнопки появляются справа
                 showLockedPanel();
-                // Для голосового показываем панель с кнопками, но плашка записи остаётся
-                voiceRecordingPanel.classList.add('show');
+                // Не скрываем панель записи
             } else {
-                // Для видео превью остаётся, добавляем кнопки
+                // Для видео: превью остаётся, добавляем кнопки справа
                 showLockedPanel();
             }
             
@@ -1192,7 +1198,7 @@
             if (hasText) {
                 sendMessage();
             } else if (isLongPress && isRecording && !isRecordingLocked) {
-                // Обычное завершение записи (отпустили без свайпа) - автоматическая отправка
+                // Обычное завершение записи - автоматическая отправка
                 if (currentMode === 'voice') {
                     stopVoiceRecording();
                 } else {
@@ -1406,10 +1412,13 @@
                 const actionArea = msgEl.querySelector('.action-area');
                 actionArea.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    const rect = msgEl.getBoundingClientRect();
                     if (messageFrom === currentUser?.id) {
-                        showContextMenu(e.clientX, e.clientY, messageId, messageType);
+                        // Меню редактирования/удаления — СЛЕВА
+                        showContextMenu(rect.left - 10, rect.top, messageId, messageType);
                     } else {
-                        showReactionMenu(e.clientX, e.clientY, messageId);
+                        // Меню реакций — СПРАВА
+                        showReactionMenu(rect.right + 10, rect.top, messageId);
                     }
                 });
                 
@@ -1449,7 +1458,7 @@
             if (contextMenu) contextMenu.remove();
             contextMenu = document.createElement('div');
             contextMenu.className = 'context-menu';
-            contextMenu.style.left = (x - 160) + 'px';
+            contextMenu.style.left = (x - 150) + 'px';
             contextMenu.style.top = y + 'px';
             
             if (messageType === 'text') {
@@ -1483,8 +1492,8 @@
             if (reactionMenu) reactionMenu.remove();
             reactionMenu = document.createElement('div');
             reactionMenu.className = 'reaction-menu';
-            reactionMenu.style.left = (x - 220) + 'px';
-            reactionMenu.style.top = (y - 50) + 'px';
+            reactionMenu.style.left = x + 'px';
+            reactionMenu.style.top = y + 'px';
             reactionMenu.innerHTML = `
                 <span class="reaction-emoji" data-reaction="❤️">❤️</span>
                 <span class="reaction-emoji" data-reaction="👍">👍</span>
@@ -1700,7 +1709,16 @@
         });
 
         socket.on('reaction_added', (data) => {
-            renderMessages();
+            // Обновляем реакции в реальном времени
+            const msgIndex = currentMessages.findIndex(m => m.id === data.message_id);
+            if (msgIndex !== -1) {
+                if (!currentMessages[msgIndex].reactions) {
+                    currentMessages[msgIndex].reactions = {};
+                }
+                currentMessages[msgIndex].reactions[data.by] = data.reaction;
+                renderMessages();
+            }
+            loadFriends();
         });
 
         socket.on('unread_count', (data) => {
