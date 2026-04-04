@@ -48,6 +48,7 @@ private_messages = {}
 def index():
     return render_template('index.html')
 
+# ЕДИНСТВЕННЫЙ маршрут для статики (иконки, manifest.json и т.д.)
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory('static', filename)
@@ -140,10 +141,6 @@ def upload_file():
     file.save(filepath)
     
     return jsonify({"url": f"/uploads/{filename}", "name": file.filename})
-
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory('static', filename)
 
 @socketio.on('connect')
 def handle_connect():
