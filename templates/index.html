@@ -95,7 +95,7 @@
             height: 100vh;
         }
         
-        /* Header */
+        /* Header - УБРАНА ВЕРХНЯЯ ПАНЕЛЬ */
         .sidebar-header {
             padding: 1rem;
             border-bottom: 1px solid var(--turquoise);
@@ -115,38 +115,6 @@
             font-size: 0.8rem;
             color: #888;
             margin-top: 0.3rem;
-        }
-        
-        .chat-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--turquoise);
-            background: var(--panel);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-shrink: 0;
-        }
-        
-        .back-btn {
-            background: var(--input);
-            border: none;
-            color: var(--turquoise);
-            padding: 0.5rem 1rem;
-            border-radius: 1rem;
-            cursor: pointer;
-            display: none;
-        }
-        
-        .chat-header h4 { color: var(--turquoise); flex: 1; }
-        
-        .remove-btn {
-            background: #e74c3c;
-            border: none;
-            padding: 0.3rem 0.8rem;
-            border-radius: 1rem;
-            color: white;
-            cursor: pointer;
-            font-size: 0.8rem;
         }
         
         /* Search */
@@ -175,6 +143,11 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--panel);
+            cursor: pointer;
+        }
+        
+        .search-result-item:hover {
+            background: var(--turquoise-glass);
         }
         
         .add-friend-btn {
@@ -364,7 +337,6 @@
                 border-right: none;
             }
             .sidebar.open { transform: translateX(0); }
-            .back-btn { display: block; }
             .message { max-width: 85%; }
         }
     </style>
@@ -401,14 +373,8 @@
             </div>
         </div>
 
-        <!-- Chat Area -->
+        <!-- Chat Area - БЕЗ ВЕРХНЕЙ ПАНЕЛИ -->
         <div class="chat-area">
-            <div class="chat-header">
-                <button class="back-btn" onclick="toggleSidebar()">← Back</button>
-                <h4 id="chat-title">Select a chat</h4>
-                <button id="remove-friend-btn" class="remove-btn" style="display: none;">Remove</button>
-            </div>
-            
             <div class="messages-container" id="messages">
                 <div class="empty-state">Choose a friend to start messaging</div>
             </div>
@@ -429,6 +395,7 @@
         const socket = io();
         let user = null;
         let currentChatId = null;
+        let currentChatName = '';
         let isVideoMode = false;
         let isRecording = false;
         let mediaRecorder = null;
@@ -444,8 +411,6 @@
         const searchResults = document.getElementById('search-results');
         const messagesDiv = document.getElementById('messages');
         const msgInput = document.getElementById('msg-input');
-        const chatTitle = document.getElementById('chat-title');
-        const removeBtn = document.getElementById('remove-friend-btn');
         const recordBtn = document.getElementById('record-btn');
         const sendBtn = document.getElementById('send-btn');
         const attachBtn = document.getElementById('attach-file');
@@ -502,13 +467,13 @@
                     searchResults.innerHTML = '<div class="search-result-item">No users found</div>';
                 } else {
                     searchResults.innerHTML = users.map(u => `
-                        <div class="search-result-item">
+                        <div class="search-result-item" onclick="openChatDirect('${u.id}', '${u.username}')">
                             <div>
                                 <strong>${u.username}</strong>
                                 <div style="font-size:0.75rem">${u.online ? '🟢 Online' : '⚫ Offline'}</div>
                             </div>
                             ${!u.is_friend ? 
-                                `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : 
+                                `<button class="add-friend-btn" onclick="event.stopPropagation(); addFriend('${u.id}', '${u.username}')">Add</button>` : 
                                 '<span style="font-size:0.75rem; color:#888">✓ Friend</span>'}
                         </div>
                     `).join('');
@@ -516,7 +481,9 @@
             }, 500);
         });
 
-        window.addFriend = async (friendId) => {
+        // Add Friend and Open Chat
+        window.addFriend = async (friendId, friendName) => {
+            event.stopPropagation();
             await fetch('/api/add_friend', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -524,6 +491,23 @@
             });
             searchInput.value = '';
             searchResults.style.display = 'none';
+            // Сразу открываем чат с добавленным другом
+            openChatDirect(friendId, friendName);
+        };
+
+        // Open Chat Directly (from search or friends list)
+        window.openChatDirect = (friendId, friendName) => {
+            currentChatId = friendId;
+            currentChatName = friendName;
+            msgInput.disabled = false;
+            msgInput.placeholder = `Message to ${friendName}...`;
+            
+            if (window.innerWidth <= 600) {
+                sidebar.classList.remove('open');
+            }
+            
+            socket.emit('get_messages', {user_id: user.user_id, other_user_id: friendId});
+            updateButtons();
         };
 
         // Friends List
@@ -534,7 +518,7 @@
             }
             
             friendsList.innerHTML = friends.map(f => `
-                <div class="friend-item ${currentChatId === f.id ? 'active' : ''}" onclick="openChat('${f.id}', '${f.username}')">
+                <div class="friend-item ${currentChatId === f.id ? 'active' : ''}" onclick="openChatDirect('${f.id}', '${f.username}')">
                     <div class="friend-info">
                         <div class="friend-name">${f.username}</div>
                         <div class="online-status">
@@ -546,23 +530,14 @@
             `).join('');
         });
 
-        function openChat(friendId, friendName) {
-            currentChatId = friendId;
-            chatTitle.innerText = friendName;
-            removeBtn.style.display = 'block';
-            msgInput.disabled = false;
-            
-            if (window.innerWidth <= 600) {
-                sidebar.classList.remove('open');
-            }
-            
-            socket.emit('get_messages', {user_id: user.user_id, other_user_id: friendId});
-        }
-
         // Messages
         socket.on('messages_history', (msgs) => {
             messagesDiv.innerHTML = '';
-            msgs.forEach(addMessageToUI);
+            if (msgs.length === 0) {
+                messagesDiv.innerHTML = `<div class="empty-state">Start conversation with ${currentChatName}</div>`;
+            } else {
+                msgs.forEach(addMessageToUI);
+            }
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
 
@@ -575,10 +550,6 @@
         socket.on('message_deleted_client', (data) => {
             const el = document.getElementById(data.message_id);
             if (el) el.remove();
-        });
-
-        socket.on('messages_read', () => {
-            renderMessages();
         });
 
         function addMessageToUI(msg) {
@@ -606,11 +577,6 @@
             
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function renderMessages() {
-            if (!currentChatId) return;
-            socket.emit('get_messages', {user_id: user.user_id, other_user_id: currentChatId});
         }
 
         // Send Message
@@ -728,23 +694,6 @@
         recordBtn.onmouseleave = stopRecording;
         recordBtn.ontouchstart = startRecording;
         recordBtn.ontouchend = stopRecording;
-
-        // Remove Friend
-        removeBtn.onclick = async () => {
-            if (!currentChatId) return;
-            if (confirm('Remove this friend?')) {
-                await fetch('/api/remove_friend', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({user_id: user.user_id, friend_id: currentChatId})
-                });
-                currentChatId = null;
-                chatTitle.innerText = 'Select a chat';
-                removeBtn.style.display = 'none';
-                msgInput.disabled = true;
-                messagesDiv.innerHTML = '<div class="empty-state">Choose a friend to start messaging</div>';
-            }
-        };
 
         function escapeHtml(text) {
             const div = document.createElement('div');
