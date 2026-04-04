@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.jesica.fax",
+    "sha256_cert_fingerprints": ["83:70:EA:DD:9B:D2:8B:1D:D8:6F:74:81:EA:47:FE:BC:F3:43:45:8D:E1:88:1E:D5:97:CA:48:E2:F8:87:72:7A"]
+  }
+}]
