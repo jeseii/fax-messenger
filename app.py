@@ -61,10 +61,6 @@ def index():
 def serve_static(filename):
     return send_from_directory('static', filename)
 
-@app.route('/.well-known/assetlinks.json')
-def serve_assetlinks():
-    return send_from_directory('.well-known', 'assetlinks.json')
-
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
@@ -148,8 +144,6 @@ def upload_file():
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-# --- SOCKET EVENTS ---
-
 @socketio.on('connect')
 def handle_connect():
     pass
@@ -173,12 +167,12 @@ def handle_get_friends():
         if info['sid'] == request.sid:
             user_id = uid
             break
-    if not user_id: return
+    if not user_id:
+        return
 
     friends_list = []
     for friend_id in friends_db.get(user_id, []):
         if friend_id in users_db:
-            # Считаем непрочитанные
             unread = 0
             msgs = private_messages.get(user_id, {}).get(friend_id, [])
             for m in msgs:
@@ -198,7 +192,6 @@ def handle_get_messages(data):
     user_id = data.get('user_id')
     other_user_id = data.get('other_user_id')
     
-    # ПОМЕЧАЕМ ВСЕ СООБЩЕНИЯ ОТ ДРУГОГО ПОЛЬЗОВАТЕЛЯ КАК ПРОЧИТАННЫЕ
     user_msgs = private_messages.get(user_id, {}).get(other_user_id, [])
     updated = False
     for msg in user_msgs:
@@ -208,7 +201,6 @@ def handle_get_messages(data):
             
     if updated:
         save_messages(private_messages)
-        # Отправляем уведомление о прочтении
         emit('messages_read', {"by": user_id, "chat_with": other_user_id})
 
     emit('messages_history', private_messages.get(user_id, {}).get(other_user_id, []))
@@ -219,7 +211,8 @@ def handle_private_message(data):
     to_user_id = data.get('to_user_id')
     message = data.get('message')
     
-    if from_user_id not in users_db or to_user_id not in users_db: return
+    if from_user_id not in users_db or to_user_id not in users_db:
+        return
 
     message_data = {
         "id": str(uuid.uuid4())[:8],
@@ -228,31 +221,32 @@ def handle_private_message(data):
         "from": users_db[from_user_id]['username'],
         "from_id": from_user_id,
         "timestamp": datetime.now().isoformat(),
-        "read": False, # По умолчанию не прочитано
+        "read": False,
         "filename": message.get('name', '')
     }
 
-    # Сохраняем в оба чата (зеркально)
-    if from_user_id not in private_messages: private_messages[from_user_id] = {}
-    if to_user_id not in private_messages[from_user_id]: private_messages[from_user_id][to_user_id] = []
+    if from_user_id not in private_messages:
+        private_messages[from_user_id] = {}
+    if to_user_id not in private_messages[from_user_id]:
+        private_messages[from_user_id][to_user_id] = []
     private_messages[from_user_id][to_user_id].append(message_data)
 
-    if to_user_id not in private_messages: private_messages[to_user_id] = {}
-    if from_user_id not in private_messages[to_user_id]: private_messages[to_user_id][from_user_id] = []
+    if to_user_id not in private_messages:
+        private_messages[to_user_id] = {}
+    if from_user_id not in private_messages[to_user_id]:
+        private_messages[to_user_id][from_user_id] = []
     private_messages[to_user_id][from_user_id].append(message_data.copy())
 
     save_messages(private_messages)
 
-    # Эмитим получателю
     if to_user_id in active_users:
         emit('new_private_message', {
             "from_user_id": from_user_id,
             "message": message_data
         }, to=active_users[to_user_id]['sid'])
         
-    # Эмитим обратно отправителю (чтобы обновить статус read/ticks)
     emit('new_private_message', {
-        "from_user_id": from_user_id, # Оставляем ID отправителя, чтобы клиент понял что это свое
+        "from_user_id": from_user_id,
         "message": message_data
     }, to=request.sid)
 
@@ -262,17 +256,17 @@ def handle_private_message(data):
 @socketio.on('delete_message')
 def handle_delete_message(data):
     message_id = data.get('message_id')
-    user_id = data.get('user_id') # Кто удалил
+    user_id = data.get('user_id')
     chat_with = data.get('chat_with')
     
-    # УДАЛЯЕМ ИЗ ОБЕИХ ВЕТОК ХРАНЕНИЯ
     deleted = False
     if user_id in private_messages and chat_with in private_messages[user_id]:
         orig_count = len(private_messages[user_id][chat_with])
         private_messages[user_id][chat_with] = [
             m for m in private_messages[user_id][chat_with] if m['id'] != message_id
         ]
-        if len(private_messages[user_id][chat_with]) < orig_count: deleted = True
+        if len(private_messages[user_id][chat_with]) < orig_count:
+            deleted = True
 
     if chat_with in private_messages and user_id in private_messages[chat_with]:
         private_messages[chat_with][user_id] = [
@@ -282,7 +276,6 @@ def handle_delete_message(data):
     save_messages(private_messages)
 
     if deleted:
-        # Уведомляем всех, чтобы удалили визуально
         if user_id in active_users:
             emit('message_deleted_client', {"message_id": message_id}, to=active_users[user_id]['sid'])
         if chat_with in active_users:
@@ -304,11 +297,13 @@ def handle_disconnect():
             users_db[user_id]['online'] = False
             del active_users[user_id]
             save_users(users_db)
-            for uid in active_users: update_friends_list(uid)
+            for uid in active_users:
+                update_friends_list(uid)
             break
 
 def update_friends_list(user_id):
-    if user_id not in active_users: return
+    if user_id not in active_users:
+        return
     friends_list = []
     for friend_id in friends_db.get(user_id, []):
         if friend_id in users_db:
