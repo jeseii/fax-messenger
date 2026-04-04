@@ -53,6 +53,11 @@ def index():
 def serve_static(filename):
     return send_from_directory('static', filename)
 
+# МАРШРУТ ДЛЯ assetlinks.json (УБИРАЕТ АДРЕСНУЮ СТРОКУ)
+@app.route('/.well-known/assetlinks.json')
+def serve_assetlinks():
+    return send_from_directory('.well-known', 'assetlinks.json')
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
