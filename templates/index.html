@@ -2,1402 +2,383 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FAX Messenger</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg: #0e161b;
+            --panel: #17212b;
+            --input: #242f3d;
+            --primary: #8774e1;
+            --text: #f5f5f5;
+            --msg-sent: #2b5278;
+            --msg-recv: #182533;
         }
-
-        html, body {
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            position: fixed;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
-            background: #0a0f0f;
-            color: #e0e0e0;
-        }
-
-        /* Экран входа */
-        #login-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
+        
+        /* Layout */
+        .sidebar { width: 300px; background: var(--panel); border-right: 1px solid #000; display: flex; flex-direction: column; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #0e161b; position: relative; }
+        
+        /* Login Screen */
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .login-box { background: var(--panel); padding: 2rem; border-radius: 12px; text-align: center; width: 90%; max-width: 350px; }
+        .login-box input { width: 100%; padding: 12px; margin: 10px 0; background: var(--input); border: none; color: white; border-radius: 8px; }
+        .btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%; }
+        
+        /* Chat Header */
+        .chat-header { padding: 15px; background: var(--panel); display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Messages */
+        .messages-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        
+        /* Message Row & Reaction Area */
+        .msg-row { display: flex; width: 100%; position: relative; }
+        .msg-row.own { justify-content: flex-end; }
+        .msg-row.other { justify-content: flex-start; }
+        
+        /* Зона для реакции (пустое место) */
+        .reaction-zone {
+            width: 30px; 
+            min-height: 40px; 
+            display: flex; 
+            align-items: center; 
             justify-content: center;
-            background: #0a0f0f;
-            z-index: 100;
-        }
-
-        .login-box {
-            background: #1a1f1f;
-            padding: 2rem;
-            border-radius: 2rem;
-            text-align: center;
-            border: 1px solid #2a9d8f;
-            width: 90%;
-            max-width: 350px;
-        }
-
-        .login-box h1 {
-            color: #2a9d8f;
-            margin-bottom: 1rem;
-        }
-
-        .login-box input {
-            background: #1e2a2a;
-            border: 1px solid #2a9d8f;
-            color: white;
-            padding: 0.75rem;
-            border-radius: 2rem;
-            width: 100%;
-            margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        .login-box button {
-            background: #2a9d8f;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 2rem;
-            color: white;
-            font-weight: bold;
             cursor: pointer;
-            width: 100%;
-            font-size: 1rem;
+            z-index: 5;
         }
+        .reaction-zone:active { background: rgba(255,255,255,0.05); }
 
-        .app-container {
-            display: flex;
-            height: 100%;
-            width: 100%;
-        }
-
-        /* ЛЕВАЯ ПАНЕЛЬ */
-        .friends-panel {
-            width: 280px;
-            background: #0f1414;
-            border-right: 1px solid #2a9d8f;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 20;
-        }
-
-        .friends-header {
-            padding: 1rem;
-            border-bottom: 1px solid #2a9d8f;
-            background: #0a0f0f;
-            cursor: pointer;
-        }
-
-        .friends-header h3 {
-            color: #2a9d8f;
-            font-size: 1rem;
-        }
-
-        .current-user {
-            font-size: 0.8rem;
-            color: #888;
-            margin-top: 0.3rem;
-        }
-
-        .search-box {
-            padding: 0.8rem;
-            border-bottom: 1px solid #1e2a2a;
-        }
-
-        .search-box input {
-            width: 100%;
-            background: #1a1f1f;
-            border: 1px solid #2a9d8f;
-            border-radius: 2rem;
-            padding: 0.5rem 0.8rem;
-            color: white;
-            font-size: 0.8rem;
-        }
-
-        .search-results {
-            max-height: 200px;
-            overflow-y: auto;
-            background: #1a1f1f;
-            border-radius: 1rem;
-            margin-top: 0.5rem;
-        }
-
-        .search-result-item {
-            padding: 0.6rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #1e2a2a;
-        }
-
-        .add-friend-btn {
-            background: #2a9d8f;
-            border: none;
-            padding: 0.2rem 0.6rem;
-            border-radius: 1rem;
-            color: white;
-            cursor: pointer;
-            font-size: 0.7rem;
-        }
-
-        .friends-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.5rem;
-        }
-
-        .friend-item {
-            padding: 0.8rem;
-            margin-bottom: 0.3rem;
-            border-radius: 1rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .friend-item:hover {
-            background: #1e2a2a;
-        }
-
-        .friend-item.active {
-            background: #2a9d8f;
-            color: white;
-        }
-
-        .friend-name {
-            font-weight: 500;
-        }
-
-        .online-status {
-            font-size: 0.7rem;
-            opacity: 0.7;
-        }
-
-        .online-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 0.3rem;
-        }
-
-        .online-dot.online {
-            background: #2a9d8f;
-        }
-
-        .online-dot.offline {
-            background: #666;
-        }
-
-        .unread-badge {
-            background: #e74c3c;
-            color: white;
-            border-radius: 1rem;
-            padding: 0.2rem 0.5rem;
-            font-size: 0.7rem;
-            font-weight: bold;
-        }
-
-        .remove-friend-small {
-            background: none;
-            border: none;
-            color: #e74c3c;
-            cursor: pointer;
-            font-size: 0.8rem;
-            padding: 0.2rem 0.4rem;
-            border-radius: 1rem;
-        }
-
-        .chat-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: #0a0f0f;
-            height: 100%;
-        }
-
-        .chat-header {
-            padding: 1rem;
-            border-bottom: 1px solid #2a9d8f;
-            background: #0f1414;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        .chat-header h4 {
-            color: #2a9d8f;
-            font-size: 1rem;
-        }
-
-        .back-btn {
-            display: none;
-            background: #1e2a2a;
-            border: none;
-            color: #2a9d8f;
-            font-size: 1rem;
-            padding: 0.3rem 0.8rem;
-            border-radius: 1rem;
-            cursor: pointer;
-        }
-
-        .remove-friend-btn {
-            background: #e74c3c;
-            border: none;
-            padding: 0.3rem 0.8rem;
-            border-radius: 1rem;
-            color: white;
-            cursor: pointer;
-            font-size: 0.7rem;
-        }
-
-        .messages-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
+        /* Bubble */
         .message {
-            max-width: 70%;
-            padding: 0.5rem 1rem;
-            border-radius: 1.5rem;
-            word-wrap: break-word;
-            font-size: 0.9rem;
-            position: relative;
+            max-width: 65%; padding: 8px 12px; border-radius: 12px; position: relative; font-size: 15px; line-height: 1.4;
         }
+        .message.own { background: var(--msg-sent); border-bottom-right-radius: 4px; }
+        .message.other { background: var(--msg-recv); border-bottom-left-radius: 4px; }
 
-        .message.own {
-            align-self: flex-end;
-            background: #2a9d8f;
-            color: white;
-            border-bottom-right-radius: 0.25rem;
-        }
+        .msg-meta { font-size: 11px; color: #8899a6; text-align: right; margin-top: 2px; display: flex; justify-content: flex-end; gap: 4px; align-items: center; }
+        .ticks { color: #8774e1; font-weight: bold; }
+        .ticks.read { color: #4fc3f7; }
 
-        .message.other {
-            align-self: flex-start;
-            background: #1e2424;
-            border-bottom-left-radius: 0.25rem;
-        }
+        /* Media Styles */
+        .message img, .message video { max-width: 100%; border-radius: 8px; display: block; margin-top: 5px; }
+        
+        /* Убираем рамку у аудио и видео */
+        .message audio, .message video { border: none !important; outline: none !important; box-shadow: none !important; }
+        /* Видео-кружок */
+        .video-circle { width: 180px; height: 180px; border-radius: 50%; object-fit: cover; cursor: pointer; border: none; }
+        .audio-msg { min-width: 200px; }
 
-        .message .name {
-            font-size: 0.65rem;
-            opacity: 0.7;
-            margin-bottom: 0.2rem;
-        }
+        /* Input Area */
+        .input-area { padding: 10px; background: var(--panel); display: flex; align-items: center; gap: 10px; }
+        #msg-input { flex: 1; background: var(--input); border: none; padding: 12px; color: white; border-radius: 20px; outline: none; }
+        
+        /* Toggle Button */
+        .media-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--input); border: none; color: var(--primary); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .media-btn:active { transform: scale(0.9); }
+        
+        /* Emoji Modal */
+        #emoji-modal { display: none; position: absolute; background: var(--panel); border-radius: 8px; padding: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 100; }
+        .emoji-item { font-size: 1.5rem; padding: 5px; cursor: pointer; display: inline-block; }
 
-        .message .time {
-            font-size: 0.6rem;
-            opacity: 0.5;
-            margin-top: 0.2rem;
-        }
-
-        .message .status {
-            font-size: 0.6rem;
-            margin-left: 0.3rem;
-        }
-
-        .message .edited-badge {
-            font-size: 0.6rem;
-            opacity: 0.5;
-            margin-left: 0.3rem;
-        }
-
-        .message img {
-            max-width: 200px;
-            border-radius: 1rem;
-            margin-top: 0.3rem;
-            cursor: pointer;
-        }
-
-        .message video {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-top: 0.3rem;
-        }
-
-        .message audio {
-            margin-top: 0.3rem;
-            max-width: 200px;
-        }
-
-        .message a {
-            color: #2a9d8f;
-            text-decoration: none;
-        }
-
-        .reactions {
-            display: flex;
-            gap: 0.2rem;
-            margin-top: 0.2rem;
-            flex-wrap: wrap;
-        }
-
-        .reaction {
-            background: rgba(255,255,255,0.1);
-            border-radius: 1rem;
-            padding: 0.1rem 0.4rem;
-            font-size: 0.7rem;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        .reaction:hover {
-            transform: scale(1.1);
-        }
-
-        .context-menu {
-            position: fixed;
-            background: #1a1f1f;
-            border-radius: 1rem;
-            overflow: hidden;
-            z-index: 200;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border: 1px solid #2a9d8f;
-            min-width: 150px;
-        }
-
-        .context-menu-item {
-            padding: 0.8rem 1.2rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .context-menu-item:hover {
-            background: #2a3a3a;
-        }
-
-        .reaction-menu {
-            position: fixed;
-            background: #1a1f1f;
-            border-radius: 2rem;
-            padding: 0.5rem;
-            display: flex;
-            gap: 0.5rem;
-            z-index: 200;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border: 1px solid #2a9d8f;
-        }
-
-        .reaction-emoji {
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.3rem;
-            transition: transform 0.1s;
-        }
-
-        .reaction-emoji:hover {
-            transform: scale(1.2);
-        }
-
-        .typing-indicator {
-            font-size: 0.7rem;
-            color: #2a9d8f;
-            font-style: italic;
-            padding: 0.2rem 1rem;
-            background: #0a0f0f;
-            flex-shrink: 0;
-        }
-
-        .input-area {
-            padding: 0.5rem 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-top: 1px solid #2a9d8f;
-            background: #0f1414;
-            flex-shrink: 0;
-            min-height: 56px;
-        }
-
-        .media-btn {
-            background: #1e2a2a;
-            border: none;
-            font-size: 1.2rem;
-            border-radius: 50%;
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: all 0.2s;
-        }
-
-        .media-btn:active {
-            transform: scale(0.95);
-        }
-
-        #message-input {
-            flex: 1;
-            background: #1a1f1f;
-            border: 1px solid #2a9d8f;
-            border-radius: 2rem;
-            padding: 0.6rem 1rem;
-            color: white;
-            font-size: 1rem;
-            height: 40px;
-            outline: none;
-        }
-
-        .action-btn {
-            background: #2a9d8f;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-
-        .action-btn:active {
-            transform: scale(0.95);
-        }
-
-        .recording-panel {
-            position: fixed;
-            bottom: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1a1f1f;
-            padding: 0.5rem 1rem;
-            display: none;
-            align-items: center;
-            gap: 0.5rem;
-            border-radius: 2rem;
-            border: 1px solid #2a9d8f;
-            z-index: 50;
-        }
-
-        .recording-panel.show {
-            display: flex;
-        }
-
-        .recording-panel .mic-icon {
-            width: 30px;
-            height: 30px;
-            background: #e74c3c;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            animation: pulse 0.5s infinite;
-        }
-
-        .recording-panel .recording-time {
-            font-size: 0.9rem;
-            font-weight: bold;
-            color: white;
-        }
-
-        .video-preview {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            overflow: hidden;
-            background: #1a1f1f;
-            border: 2px solid #2a9d8f;
-            z-index: 50;
-            display: none;
-        }
-
-        .video-preview.show {
-            display: block;
-        }
-
-        .video-preview video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
-
-        @media (max-width: 600px) {
-            .friends-panel {
-                position: fixed;
-                top: 0;
-                left: 0;
-                bottom: 0;
-                width: 280px;
-                transform: translateX(-100%);
-                z-index: 30;
-                transition: transform 0.3s ease;
-            }
-            .friends-panel.open {
-                transform: translateX(0);
-            }
-            .back-btn {
-                display: block;
-            }
-            .mobile-overlay {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 25;
-            }
-            .mobile-overlay.show {
-                display: block;
-            }
-            .media-btn, .action-btn {
-                width: 36px;
-                height: 36px;
-                font-size: 1rem;
-            }
-            #message-input {
-                height: 36px;
-                font-size: 14px;
-                padding: 0.5rem 0.8rem;
-            }
-            .input-area {
-                padding: 0.4rem 0.6rem;
-                gap: 0.4rem;
-                min-height: 52px;
-            }
-            .video-preview {
-                width: 80px;
-                height: 80px;
-                bottom: 70px;
-                right: 10px;
-            }
-        }
-
-        @media (min-width: 601px) {
-            .back-btn {
-                display: none;
-            }
-        }
-
-        .mobile-overlay {
-            display: none;
-        }
+        /* Fullscreen Video Modal */
+        #video-fs-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; align-items: center; justify-content: center; }
+        #video-fs-modal video { max-width: 90%; max-height: 90%; border-radius: 12px; }
     </style>
 </head>
 <body>
-    <div id="mobile-overlay" class="mobile-overlay"></div>
 
-    <div id="login-screen">
+    <!-- Login -->
+    <div id="login-screen" class="login-overlay">
         <div class="login-box">
-            <h1>📠 FAX</h1>
-            <input type="text" id="username-input" placeholder="Your name" maxlength="20">
-            <button id="join-btn">Join Chat</button>
+            <h2>FAX Messenger</h2>
+            <input type="text" id="username-inp" placeholder="Введите имя">
+            <button class="btn" onclick="login()">Войти</button>
         </div>
     </div>
 
-    <div id="app-container" class="app-container" style="display:none">
-        <div id="friends-panel" class="friends-panel">
-            <div class="friends-header" id="friends-header">
-                <h3>📠 FAX</h3>
-                <div class="current-user" id="current-user-name"></div>
-            </div>
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 Search users...">
-                <div id="search-results" class="search-results" style="display: none;"></div>
-            </div>
-            <div class="friends-list" id="friends-list">
-                <div class="empty-state">No friends yet. Search and add!</div>
-            </div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div style="padding: 15px; font-weight: bold; font-size: 1.2rem;">Чаты</div>
+        <div id="friends-list" style="overflow-y: auto; flex: 1;"></div>
+    </div>
+
+    <!-- Main Chat -->
+    <div class="chat-area">
+        <div class="chat-header">
+            <span id="chat-title">Выберите чат</span>
         </div>
 
-        <div class="chat-panel">
-            <div class="chat-header">
-                <button id="back-btn" class="back-btn">← Back</button>
-                <h4 id="selected-chat-name">Select a chat</h4>
-                <button id="remove-friend-btn" class="remove-friend-btn" style="display: none;">Remove</button>
-            </div>
+        <div class="messages-container" id="messages"></div>
 
-            <div class="messages-area" id="messages-area">
-                <div class="empty-state">Choose a friend to start messaging</div>
-            </div>
+        <!-- Emoji Modal (Absolute) -->
+        <div id="emoji-modal"></div>
 
-            <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
-
-            <div class="input-area">
-                <button id="attach-file" class="media-btn" title="Attach file">📎</button>
-                <input type="text" id="message-input" placeholder="Message..." autocomplete="off">
-                <button id="action-btn" class="action-btn" title="Voice message">🎤</button>
-            </div>
+        <div class="input-area">
+            <input type="text" id="msg-input" placeholder="Сообщение...">
+            <!-- Кнопка переключения/записи -->
+            <button id="record-btn" class="media-btn" title="Зажми для записи, кликни для смены режима">🎤</button>
         </div>
     </div>
 
-    <div id="recording-panel" class="recording-panel">
-        <div class="mic-icon">🎤</div>
-        <div class="recording-time" id="recording-time">0:00</div>
-    </div>
-
-    <div id="video-preview" class="video-preview">
-        <video id="preview-video" autoplay muted playsinline></video>
+    <!-- Fullscreen Video -->
+    <div id="video-fs-modal" onclick="closeVideoFs()">
+        <video id="fs-video" controls autoplay></video>
     </div>
 
     <script>
         const socket = io();
+        let user = null;
+        let currentChatId = null;
+        let isVideoMode = false; // По умолчанию голосовые
 
-        let currentUser = null;
-        let currentChatUser = null;
-        let friendsList = [];
-        let currentMessages = [];
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let recordingStartTime = null;
-        let recordingInterval = null;
-        let currentStream = null;
-        let contextMenu = null;
-        let reactionMenu = null;
-
-        // DOM элементы
+        // DOM
         const loginScreen = document.getElementById('login-screen');
-        const appContainer = document.getElementById('app-container');
-        const friendsPanel = document.getElementById('friends-panel');
-        const friendsHeader = document.getElementById('friends-header');
-        const friendsListDiv = document.getElementById('friends-list');
-        const messagesArea = document.getElementById('messages-area');
-        const messageInput = document.getElementById('message-input');
-        const actionBtn = document.getElementById('action-btn');
-        const selectedChatName = document.getElementById('selected-chat-name');
-        const currentUserNameSpan = document.getElementById('current-user-name');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const backBtn = document.getElementById('back-btn');
-        const searchInput = document.getElementById('search-input');
-        const searchResults = document.getElementById('search-results');
-        const removeFriendBtn = document.getElementById('remove-friend-btn');
-        const mobileOverlay = document.getElementById('mobile-overlay');
-        const recordingPanel = document.getElementById('recording-panel');
-        const recordingTimeSpan = document.getElementById('recording-time');
-        const videoPreview = document.getElementById('video-preview');
-        const previewVideo = document.getElementById('preview-video');
+        const usernameInp = document.getElementById('username-inp');
+        const friendsList = document.getElementById('friends-list');
+        const messagesDiv = document.getElementById('messages');
+        const msgInput = document.getElementById('msg-input');
+        const recordBtn = document.getElementById('record-btn');
+        const chatTitle = document.getElementById('chat-title');
+        const emojiModal = document.getElementById('emoji-modal');
+        const fsModal = document.getElementById('video-fs-modal');
+        const fsVideo = document.getElementById('fs-video');
 
-        function openFriendsPanel() {
-            friendsPanel.classList.add('open');
-            mobileOverlay.classList.add('show');
-        }
-
-        function closeFriendsPanel() {
-            friendsPanel.classList.remove('open');
-            mobileOverlay.classList.remove('show');
-        }
-
-        friendsHeader.onclick = () => {
-            if (window.innerWidth <= 600) {
-                if (friendsPanel.classList.contains('open')) {
-                    closeFriendsPanel();
-                } else {
-                    openFriendsPanel();
-                }
-            }
-        };
-
-        backBtn.onclick = () => {
-            if (window.innerWidth <= 600) {
-                openFriendsPanel();
-            }
-        };
-
-        mobileOverlay.onclick = closeFriendsPanel;
-
-        function updateActionButton() {
-            const hasText = messageInput.value.trim().length > 0;
-            if (hasText && currentChatUser) {
-                actionBtn.innerHTML = '➤';
-                actionBtn.title = 'Send message';
-            } else if (currentChatUser) {
-                actionBtn.innerHTML = '🎤';
-                actionBtn.title = 'Voice message (hold to record)';
-            } else {
-                actionBtn.innerHTML = '🎤';
-            }
-        }
-
-        async function startVoiceRecording() {
-            if (!currentChatUser || isRecording) return;
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                currentStream = stream;
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                audioChunks = [];
-                
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
-                
-                mediaRecorder.onstop = () => {
-                    if (audioChunks.length > 0) {
-                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
-                        uploadAndSend(file, 'voice');
-                    }
-                    if (currentStream) {
-                        currentStream.getTracks().forEach(t => t.stop());
-                        currentStream = null;
-                    }
-                    hideRecordingPanel();
-                    isRecording = false;
-                };
-                
-                mediaRecorder.start();
-                isRecording = true;
-                recordingStartTime = Date.now();
-                showRecordingPanel();
-                startRecordingTimer();
-            } catch (err) {
-                console.error('Microphone error:', err);
-                alert('Please allow microphone access');
-            }
-        }
-
-        function stopVoiceRecording() {
-            if (mediaRecorder && isRecording && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-            }
-            hideRecordingPanel();
-            isRecording = false;
-        }
-
-        function cancelVoiceRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.onstop = () => {};
-                mediaRecorder.stop();
-                audioChunks = [];
-            }
-            if (currentStream) {
-                currentStream.getTracks().forEach(t => t.stop());
-                currentStream = null;
-            }
-            hideRecordingPanel();
-            isRecording = false;
-        }
-
-        function showRecordingPanel() {
-            recordingPanel.classList.add('show');
-        }
-
-        function hideRecordingPanel() {
-            recordingPanel.classList.remove('show');
-            if (recordingInterval) {
-                clearInterval(recordingInterval);
-                recordingInterval = null;
-            }
-            isRecording = false;
-        }
-
-        function startRecordingTimer() {
-            recordingInterval = setInterval(() => {
-                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-                const minutes = Math.floor(elapsed / 60);
-                const seconds = elapsed % 60;
-                recordingTimeSpan.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            }, 1000);
-        }
-
-        async function startVideoRecording() {
-            if (!currentChatUser) return;
-            try {
-                videoPreview.classList.add('show');
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                currentStream = stream;
-                previewVideo.srcObject = stream;
-                
-                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                let chunks = [];
-                
-                recorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) chunks.push(e.data);
-                };
-                
-                recorder.onstop = () => {
-                    if (chunks.length > 0) {
-                        const blob = new Blob(chunks, { type: 'video/webm' });
-                        const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
-                        uploadAndSend(file, 'video');
-                    }
-                    if (currentStream) {
-                        currentStream.getTracks().forEach(t => t.stop());
-                        currentStream = null;
-                    }
-                    previewVideo.srcObject = null;
-                    videoPreview.classList.remove('show');
-                };
-                
-                recorder.start();
-                
-                setTimeout(() => {
-                    if (recorder.state === 'recording') {
-                        recorder.stop();
-                    }
-                }, 10000);
-            } catch (err) {
-                console.error('Camera error:', err);
-                alert('Please allow camera access');
-                videoPreview.classList.remove('show');
-            }
-        }
-
-        let pressTimer = null;
-        let isLongPress = false;
-        let recordingStarted = false;
-
-        function onActionButtonStart(e) {
-            if (!currentChatUser) return;
-            const hasText = messageInput.value.trim().length > 0;
-            if (hasText) return;
-            
-            e.preventDefault();
-            isLongPress = false;
-            recordingStarted = false;
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                recordingStarted = true;
-                startVoiceRecording();
-            }, 300);
-        }
-
-        function onActionButtonEnd(e) {
-            if (pressTimer) {
-                clearTimeout(pressTimer);
-                pressTimer = null;
-            }
-            if (!currentChatUser) return;
-            
-            const hasText = messageInput.value.trim().length > 0;
-            if (hasText) {
-                sendMessage();
-            } else if (isLongPress && recordingStarted) {
-                stopVoiceRecording();
-            } else if (!isLongPress) {
-                startVideoRecording();
-            }
-            isLongPress = false;
-            recordingStarted = false;
-            hideRecordingPanel();
-        }
-
-        function onActionButtonCancel() {
-            if (pressTimer) {
-                clearTimeout(pressTimer);
-                pressTimer = null;
-            }
-            if (isRecording) {
-                cancelVoiceRecording();
-            }
-            hideRecordingPanel();
-            isLongPress = false;
-            recordingStarted = false;
-        }
-
-        actionBtn.addEventListener('mousedown', onActionButtonStart);
-        actionBtn.addEventListener('mouseup', onActionButtonEnd);
-        actionBtn.addEventListener('touchstart', onActionButtonStart);
-        actionBtn.addEventListener('touchend', onActionButtonEnd);
-        actionBtn.addEventListener('touchcancel', onActionButtonCancel);
-        
-        window.addEventListener('mouseup', function(e) {
-            if (e.target !== actionBtn && isRecording) {
-                cancelVoiceRecording();
-                hideRecordingPanel();
-            }
-        });
-
-        document.getElementById('join-btn').onclick = async () => {
-            const username = document.getElementById('username-input').value.trim();
-            if (!username) {
-                alert('Enter your name');
-                return;
-            }
-            const res = await fetch('/api/login', {
+        // --- AUTH ---
+        function login() {
+            const name = usernameInp.value.trim();
+            if(!name) return;
+            fetch('/api/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                currentUser = { id: data.user_id, username };
-                currentUserNameSpan.innerText = username;
-                socket.emit('register', { user_id: currentUser.id, username });
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: name})
+            }).then(r => r.json()).then(data => {
+                user = data;
                 loginScreen.style.display = 'none';
-                appContainer.style.display = 'flex';
-                loadFriends();
-            }
-        };
-
-        function loadFriends() {
-            socket.emit('get_friends');
-        }
-
-        function selectChat(friend) {
-            currentChatUser = friend;
-            selectedChatName.innerText = friend.username;
-            removeFriendBtn.style.display = 'block';
-            updateActionButton();
-            
-            socket.emit('mark_as_read', {
-                user_id: currentUser.id,
-                other_user_id: friend.id
-            });
-            
-            socket.emit('get_messages', {
-                user_id: currentUser.id,
-                other_user_id: friend.id
-            });
-            
-            if (window.innerWidth <= 600) closeFriendsPanel();
-        }
-
-        function renderFriends() {
-            if (friendsList.length === 0) {
-                friendsListDiv.innerHTML = '<div class="empty-state">No friends yet. Search and add!</div>';
-                return;
-            }
-            friendsListDiv.innerHTML = friendsList.map(f => `
-                <div class="friend-item ${currentChatUser?.id === f.id ? 'active' : ''}" onclick="selectFriendAndClose('${f.id}')">
-                    <div>
-                        <div class="friend-name">${escapeHtml(f.username)}</div>
-                        <div class="online-status">
-                            <span class="online-dot ${f.online ? 'online' : 'offline'}"></span>
-                            ${f.online ? 'Online' : 'Offline'}
-                        </div>
-                    </div>
-                    ${f.unread > 0 ? `<div class="unread-badge">${f.unread}</div>` : ''}
-                    <button class="remove-friend-small" onclick="event.stopPropagation(); removeFriend('${f.id}')">✕</button>
-                </div>
-            `).join('');
-        }
-
-        window.selectFriendAndClose = function(friendId) {
-            const f = friendsList.find(x => x.id === friendId);
-            if (f) selectChat(f);
-        };
-
-        window.removeFriend = async (friendId) => {
-            if (confirm('Remove this friend?')) {
-                await fetch('/api/remove_friend', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
-                });
-                if (currentChatUser?.id === friendId) {
-                    currentChatUser = null;
-                    selectedChatName.innerText = 'Select a chat';
-                    removeFriendBtn.style.display = 'none';
-                    messageInput.disabled = true;
-                    messagesArea.innerHTML = '<div class="empty-state">Choose a friend to start messaging</div>';
-                }
-                loadFriends();
-            }
-        };
-
-        removeFriendBtn.onclick = () => {
-            if (currentChatUser) removeFriend(currentChatUser.id);
-        };
-
-        function formatTime(timestamp) {
-            const date = new Date(timestamp);
-            return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-        }
-
-        function getStatusIcon(status) {
-            if (status === 'sent') return '✓';
-            if (status === 'delivered') return '✓✓';
-            if (status === 'read') return '✓✓';
-            return '';
-        }
-
-        function renderMessages() {
-            if (!currentMessages.length) {
-                messagesArea.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
-                return;
-            }
-            messagesArea.innerHTML = currentMessages.map(msg => `
-                <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}" data-message-id="${msg.id}" data-message-type="${msg.type}" data-message-from="${msg.from_id}">
-                    ${msg.from_id !== currentUser?.id ? `<div class="name">${escapeHtml(msg.from)}</div>` : ''}
-                    <div>${renderMessageContent(msg)}</div>
-                    ${msg.edited ? `<span class="edited-badge">edited</span>` : ''}
-                    <div class="reactions">
-                        ${renderReactions(msg)}
-                    </div>
-                    <div class="time">
-                        ${formatTime(msg.timestamp)}
-                        ${msg.from_id === currentUser?.id ? `<span class="status">${getStatusIcon(msg.status)}</span>` : ''}
-                    </div>
-                </div>
-            `).join('');
-            
-            document.querySelectorAll('.message').forEach(msgEl => {
-                msgEl.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    const messageId = msgEl.dataset.messageId;
-                    const messageType = msgEl.dataset.messageType;
-                    const messageFrom = msgEl.dataset.messageFrom;
-                    
-                    if (messageFrom === currentUser?.id && messageType === 'text') {
-                        showContextMenu(e.clientX, e.clientY, messageId);
-                    } else if (messageFrom === currentUser?.id) {
-                        showContextMenuForMedia(e.clientX, e.clientY, messageId);
-                    }
-                });
-                
-                msgEl.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('reaction')) return;
-                    const messageId = msgEl.dataset.messageId;
-                    showReactionMenu(e.clientX, e.clientY, messageId);
-                });
-            });
-            
-            messagesArea.scrollTop = messagesArea.scrollHeight;
-        }
-
-        function renderReactions(msg) {
-            if (!msg.reactions) return '';
-            const reactions = {};
-            for (const [userId, reaction] of Object.entries(msg.reactions)) {
-                reactions[reaction] = (reactions[reaction] || 0) + 1;
-            }
-            return Object.entries(reactions).map(([reaction, count]) => 
-                `<span class="reaction" data-reaction="${reaction}">${reaction} ${count}</span>`
-            ).join('');
-        }
-
-        function renderMessageContent(msg) {
-            if (msg.type === 'text') return escapeHtml(msg.content);
-            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
-            if (msg.type === 'video') return `<video src="${msg.content}" controls loop playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover"></video>`;
-            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
-            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
-            return msg.content;
-        }
-
-        function showContextMenu(x, y, messageId) {
-            if (contextMenu) contextMenu.remove();
-            contextMenu = document.createElement('div');
-            contextMenu.className = 'context-menu';
-            contextMenu.style.left = x + 'px';
-            contextMenu.style.top = y + 'px';
-            contextMenu.innerHTML = `
-                <div class="context-menu-item" data-action="edit">✏️ Edit</div>
-                <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
-            `;
-            document.body.appendChild(contextMenu);
-            
-            contextMenu.querySelector('[data-action="edit"]').onclick = () => {
-                editMessage(messageId);
-                contextMenu.remove();
-            };
-            contextMenu.querySelector('[data-action="delete"]').onclick = () => {
-                deleteMessage(messageId);
-                contextMenu.remove();
-            };
-            
-            setTimeout(() => {
-                document.addEventListener('click', () => contextMenu.remove(), { once: true });
-            }, 10);
-        }
-
-        function showContextMenuForMedia(x, y, messageId) {
-            if (contextMenu) contextMenu.remove();
-            contextMenu = document.createElement('div');
-            contextMenu.className = 'context-menu';
-            contextMenu.style.left = x + 'px';
-            contextMenu.style.top = y + 'px';
-            contextMenu.innerHTML = `
-                <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
-            `;
-            document.body.appendChild(contextMenu);
-            
-            contextMenu.querySelector('[data-action="delete"]').onclick = () => {
-                deleteMessage(messageId);
-                contextMenu.remove();
-            };
-            
-            setTimeout(() => {
-                document.addEventListener('click', () => contextMenu.remove(), { once: true });
-            }, 10);
-        }
-
-        function showReactionMenu(x, y, messageId) {
-            if (reactionMenu) reactionMenu.remove();
-            reactionMenu = document.createElement('div');
-            reactionMenu.className = 'reaction-menu';
-            reactionMenu.style.left = x + 'px';
-            reactionMenu.style.top = (y - 50) + 'px';
-            reactionMenu.innerHTML = `
-                <span class="reaction-emoji" data-reaction="❤️">❤️</span>
-                <span class="reaction-emoji" data-reaction="👍">👍</span>
-                <span class="reaction-emoji" data-reaction="😂">😂</span>
-                <span class="reaction-emoji" data-reaction="😮">😮</span>
-                <span class="reaction-emoji" data-reaction="😢">😢</span>
-                <span class="reaction-emoji" data-reaction="😡">😡</span>
-            `;
-            document.body.appendChild(reactionMenu);
-            
-            reactionMenu.querySelectorAll('.reaction-emoji').forEach(emoji => {
-                emoji.onclick = () => {
-                    addReaction(messageId, emoji.dataset.reaction);
-                    reactionMenu.remove();
-                };
-            });
-            
-            setTimeout(() => {
-                document.addEventListener('click', () => reactionMenu.remove(), { once: true });
-            }, 10);
-        }
-
-        function editMessage(messageId) {
-            const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
-            const oldText = messageEl.querySelector('div').innerText;
-            const newText = prompt('Edit message:', oldText);
-            if (newText && newText !== oldText) {
-                socket.emit('edit_message', {
-                    message_id: messageId,
-                    new_content: newText,
-                    user_id: currentUser.id,
-                    chat_with: currentChatUser.id
-                });
-            }
-        }
-
-        function deleteMessage(messageId) {
-            if (confirm('Delete this message?')) {
-                socket.emit('delete_message', {
-                    message_id: messageId,
-                    user_id: currentUser.id,
-                    chat_with: currentChatUser.id
-                });
-            }
-        }
-
-        function addReaction(messageId, reaction) {
-            socket.emit('add_reaction', {
-                message_id: messageId,
-                reaction: reaction,
-                user_id: currentUser.id,
-                chat_with: currentChatUser.id
+                socket.emit('register', {user_id: user.user_id, username: user.username});
             });
         }
 
-        function sendMessage() {
-            if (!currentChatUser) {
-                alert('Select a friend first');
-                return;
-            }
-            const text = messageInput.value.trim();
-            if (!text) return;
-            
-            socket.emit('private_message', {
-                from_user_id: currentUser.id,
-                to_user_id: currentChatUser.id,
-                message: { type: 'text', content: text }
-            });
-            messageInput.value = '';
-            updateActionButton();
-        }
-
-        async function uploadAndSend(file, type) {
-            if (!currentChatUser) return;
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await fetch('/upload', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (res.ok) {
-                socket.emit('private_message', {
-                    from_user_id: currentUser.id,
-                    to_user_id: currentChatUser.id,
-                    message: { type, content: data.url, name: data.name }
-                });
-            }
-        }
-
-        let searchTimeout;
-        searchInput.addEventListener('input', async () => {
-            clearTimeout(searchTimeout);
-            const query = searchInput.value.trim();
-            if (query.length < 2) {
-                searchResults.style.display = 'none';
-                return;
-            }
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const res = await fetch('/api/search_users', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ query, user_id: currentUser?.id })
-                    });
-                    const users = await res.json();
-                    if (users && users.length > 0) {
-                        searchResults.style.display = 'block';
-                        searchResults.innerHTML = users.map(u => `
-                            <div class="search-result-item">
-                                <div>
-                                    <strong>${escapeHtml(u.username)}</strong>
-                                    <div style="font-size:0.7rem">${u.online ? '🟢 Online' : '⚫ Offline'}</div>
-                                </div>
-                                ${!u.is_friend ? `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : '<span style="font-size:0.7rem;color:#666">✓ Friend</span>'}
-                            </div>
-                        `).join('');
-                    } else {
-                        searchResults.style.display = 'block';
-                        searchResults.innerHTML = '<div class="search-result-item">No users found</div>';
-                    }
-                } catch (err) {
-                    console.error('Search error:', err);
-                }
-            }, 500);
-        });
-
-        window.addFriend = async (friendId) => {
-            try {
-                const res = await fetch('/api/add_friend', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
-                });
-                if (res.ok) {
-                    searchInput.value = '';
-                    searchResults.style.display = 'none';
-                    loadFriends();
-                }
-            } catch (err) {
-                console.error('Add friend error:', err);
-            }
-        };
-
-        document.getElementById('attach-file').onclick = () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = (e) => {
-                if (e.target.files[0]) {
-                    const file = e.target.files[0];
-                    if (file.type.startsWith('image/')) uploadAndSend(file, 'image');
-                    else if (file.type.startsWith('video/')) uploadAndSend(file, 'video');
-                    else uploadAndSend(file, 'file');
-                }
-            };
-            input.click();
-        };
-
+        // --- LIST LOGIC ---
         socket.on('friends_list', (friends) => {
-            friendsList = friends || [];
-            renderFriends();
+            friendsList.innerHTML = '';
+            friends.forEach(f => {
+                const div = document.createElement('div');
+                div.style.cssText = "padding: 15px; cursor: pointer; border-bottom: 1px solid #000;";
+                div.innerHTML = `<b>${f.username}</b> ${f.unread ? `<span style="background:red; border-radius:50%; padding:2px 6px; font-size:10px;">${f.unread}</span>` : ''}`;
+                div.onclick = () => openChat(f);
+                friendsList.appendChild(div);
+            });
         });
 
-        socket.on('messages_history', (messages) => {
-            currentMessages = messages || [];
-            renderMessages();
+        function openChat(friend) {
+            currentChatId = friend.id;
+            chatTitle.innerText = friend.username;
+            socket.emit('get_messages', {user_id: user.user_id, other_user_id: friend.id});
+        }
+
+        // --- MESSAGES ---
+        socket.on('messages_history', (msgs) => {
+            messagesDiv.innerHTML = '';
+            msgs.forEach(addMessageToUI);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
 
         socket.on('new_private_message', (data) => {
-            if (currentChatUser && currentChatUser.id === data.from_user_id) {
-                currentMessages.push(data.message);
-                renderMessages();
-            }
-            loadFriends();
+            const msg = data.message;
+            const fromId = data.from_user_id; // ID отправителя
+            // Если сообщение наше, обновляем UI, если чужое - добавляем
+            // Простая проверка: если ID сообщения уже есть, не дублируем
+            if(document.getElementById(msg.id)) return;
+            
+            // Важно: при новом сообщении от сервера нужно обновить галочки
+            // Если это наше сообщение, и сервер вернул read: true
+            addMessageToUI(msg);
         });
 
-        socket.on('friend_added', () => loadFriends());
-
-        socket.on('user_typing_private', (data) => {
-            if (currentChatUser && currentChatUser.id === data.from_user_id) {
-                typingIndicator.style.display = data.is_typing ? 'block' : 'none';
-                typingIndicator.innerText = data.is_typing ? `${data.from_username} is typing...` : '';
-            }
-        });
-
-        socket.on('message_edited', (data) => {
-            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
-            if (msgEl) {
-                const contentDiv = msgEl.querySelector('div');
-                if (contentDiv) contentDiv.innerHTML = escapeHtml(data.new_content);
-                if (!msgEl.querySelector('.edited-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'edited-badge';
-                    badge.innerText = 'edited';
-                    msgEl.appendChild(badge);
-                }
+        socket.on('messages_read', (data) => {
+            // data.by - кто прочитал. Если это мы (currentChat), значит прочитано
+            if(data.chat_with === user.user_id) {
+                renderMessages(); // Перерисовываем, чтобы обновить галочки
             }
         });
-
-        socket.on('message_deleted', (data) => {
-            const msgEl = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
-            if (msgEl) msgEl.remove();
+        
+        // Специальное событие для удаления без перезагрузки
+        socket.on('message_deleted_client', (data) => {
+            const el = document.getElementById(data.message_id);
+            if(el) el.remove();
         });
 
-        socket.on('reaction_added', (data) => {
-            renderMessages();
-        });
+        function addMessageToUI(msg) {
+            // Проверка на дубли
+            if(document.getElementById(msg.id)) return;
 
-        socket.on('unread_count', (data) => {
-            const friend = friendsList.find(f => f.id === data.from);
-            if (friend) {
-                friend.unread = data.count;
-                renderFriends();
+            const isOwn = msg.from_id === user.user_id;
+            const row = document.createElement('div');
+            row.className = `msg-row ${isOwn ? 'own' : 'other'}`;
+            row.id = msg.id;
+
+            // Реакция зона (пустое место)
+            const reactZone = document.createElement('div');
+            reactZone.className = 'reaction-zone';
+            reactZone.innerHTML = `<span id="react-${msg.id}" style="opacity:0.3; font-size:12px;">👍</span>`; // Заглушка
+            reactZone.oncontextmenu = (e) => { e.preventDefault(); showEmojiMenu(e, msg.id); };
+            // Для мобильных
+            let pressTimer;
+            reactZone.ontouchstart = (e) => { pressTimer = setTimeout(() => showEmojiMenu(e.touches[0], msg.id), 500); };
+            reactZone.ontouchend = () => clearTimeout(pressTimer);
+
+            // Bubble
+            const bubble = document.createElement('div');
+            bubble.className = `message ${isOwn ? 'own' : 'other'}`;
+
+            let content = '';
+            if(msg.type === 'text') content = msg.content;
+            else if(msg.type === 'image') content = `<img src="${msg.content}">`;
+            else if(msg.type === 'voice') content = `<audio src="${msg.content}" controls class="audio-msg"></audio>`;
+            else if(msg.type === 'video') content = `<video src="${msg.content}" class="video-circle" onclick="playFullscreen('${msg.content}')"></video>`;
+
+            // Галочки
+            let ticksHtml = '';
+            if(isOwn) {
+                if(msg.read) ticksHtml = '<span class="ticks read">✔✔</span>';
+                else ticksHtml = '<span class="ticks">✔</span>'; // Одно если отправлено, но не прочитано
             }
-        });
 
-        messageInput.addEventListener('input', updateActionButton);
+            const time = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            bubble.innerHTML = `${content}<div class="msg-meta">${time} ${ticksHtml}</div>`;
 
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        function escapeHtml(t) {
-            if (!t) return '';
-            const d = document.createElement('div');
-            d.textContent = t;
-            return d.innerHTML;
+            row.appendChild(isOwn ? bubble : reactZone);
+            row.appendChild(isOwn ? reactZone : bubble);
+            messagesDiv.appendChild(row);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Перерисовка для обновления статуса прочтения
+        function renderMessages() {
+            if(!currentChatId) return;
+            socket.emit('get_messages', {user_id: user.user_id, other_user_id: currentChatId});
         }
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
+        // --- REACTIONS ---
+        function showEmojiMenu(e, msgId) {
+            const emojis = ['❤️', '👍', '🔥', '', '😢'];
+            emojiModal.innerHTML = emojis.map(em => `<span class="emoji-item" onclick="react('${msgId}', '${em}')">${em}</span>`).join('');
+            
+            // Position
+            const x = e.clientX || e.pageX;
+            const y = e.clientY || e.pageY;
+            emojiModal.style.left = x + 'px';
+            emojiModal.style.top = y + 'px';
+            emojiModal.style.display = 'block';
         }
+
+        window.react = (msgId, emoji) => {
+            // Простая визуальная реакция без сложного бэкенда
+            const el = document.getElementById(`react-${msgId}`);
+            if(el) { el.innerText = emoji; el.style.opacity = 1; el.style.fontSize = '18px'; }
+            emojiModal.style.display = 'none';
+            // Тут можно добавить socket.emit('add_reaction', ...)
+        };
+
+        document.onclick = (e) => { if(!emojiModal.contains(e.target)) emojiModal.style.display = 'none'; };
+
+        // --- RECORDING LOGIC (Telegram Style) ---
+        let mediaRecorder;
+        let chunks = [];
+        let isRecording = false;
+        let pressTimeout;
+
+        function updateBtnIcon() {
+            recordBtn.innerHTML = isVideoMode ? '📹' : '🎤';
+            recordBtn.style.color = isVideoMode ? '#e74c3c' : '#8774e1';
+        }
+
+        // Клик (смена режима)
+        recordBtn.onclick = () => {
+            if(!isRecording) {
+                isVideoMode = !isVideoMode;
+                updateBtnIcon();
+            }
+        };
+
+        // Удержание (запись)
+        const startRec = async (e) => {
+            e.preventDefault();
+            if(isRecording) return;
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideoMode });
+                mediaRecorder = new MediaRecorder(stream);
+                chunks = [];
+                mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(chunks, { type: isVideoMode ? 'video/webm' : 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append('file', blob, isVideoMode ? 'video.webm' : 'audio.webm');
+                    
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    
+                    if(data.url) {
+                        socket.emit('private_message', {
+                            from_user_id: user.user_id,
+                            to_user_id: currentChatId,
+                            message: { type: isVideoMode ? 'video' : 'voice', content: data.url }
+                        });
+                    }
+                };
+                mediaRecorder.start();
+                isRecording = true;
+                recordBtn.style.transform = "scale(1.2)";
+            } catch(err) { alert('Ошибка доступа к микрофону/камере'); }
+        };
+
+        const stopRec = () => {
+            if(isRecording && mediaRecorder) {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.style.transform = "scale(1)";
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        };
+
+        recordBtn.onmousedown = startRec;
+        recordBtn.onmouseup = stopRec;
+        recordBtn.ontouchstart = startRec;
+        recordBtn.ontouchend = stopRec;
+
+        // --- SENDING TEXT ---
+        msgInput.onkeypress = (e) => {
+            if(e.key === 'Enter') sendText();
+        };
+        function sendText() {
+            if(!msgInput.value.trim() || !currentChatId) return;
+            socket.emit('private_message', {
+                from_user_id: user.user_id,
+                to_user_id: currentChatId,
+                message: { type: 'text', content: msgInput.value }
+            });
+            msgInput.value = '';
+        }
+
+        // --- FULLSCREEN VIDEO ---
+        window.playFullscreen = (src) => {
+            fsVideo.src = src;
+            fsModal.style.display = 'flex';
+            fsVideo.play();
+            // Авто-уменьшение при окончании
+            fsVideo.onended = closeVideoFs;
+        };
+
+        window.closeVideoFs = () => {
+            fsModal.style.display = 'none';
+            fsVideo.pause();
+            fsVideo.src = "";
+        };
+
     </script>
 </body>
 </html>
