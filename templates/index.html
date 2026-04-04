@@ -25,6 +25,14 @@
             color: #e0e0e0;
         }
 
+        /* Стеклянный эффект для всех элементов */
+        .glass {
+            background: rgba(15, 20, 20, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(42, 157, 143, 0.25);
+        }
+
         #login-screen {
             position: fixed;
             top: 0;
@@ -39,13 +47,13 @@
         }
 
         .login-box {
-            background: rgba(26, 31, 31, 0.8);
+            background: rgba(26, 31, 31, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             padding: 2rem;
             border-radius: 2rem;
             text-align: center;
-            border: 1px solid rgba(42, 157, 143, 0.3);
+            border: 1px solid rgba(42, 157, 143, 0.4);
             width: 90%;
             max-width: 350px;
         }
@@ -56,7 +64,7 @@
         }
 
         .login-box input {
-            background: rgba(30, 42, 42, 0.8);
+            background: rgba(30, 42, 42, 0.9);
             border: 1px solid rgba(42, 157, 143, 0.3);
             color: white;
             padding: 0.75rem;
@@ -86,9 +94,9 @@
 
         .friends-panel {
             width: 280px;
-            background: rgba(15, 20, 20, 0.8);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: rgba(15, 20, 20, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-right: 1px solid rgba(42, 157, 143, 0.3);
             display: flex;
             flex-direction: column;
@@ -121,7 +129,7 @@
 
         .search-box input {
             width: 100%;
-            background: rgba(26, 31, 31, 0.8);
+            background: rgba(26, 31, 31, 0.9);
             border: 1px solid rgba(42, 157, 143, 0.3);
             border-radius: 2rem;
             padding: 0.5rem 0.8rem;
@@ -281,7 +289,7 @@
             gap: 0.5rem;
         }
 
-        /* Сообщения без бирюзовой подложки */
+        /* Сообщения — без лишних подложек, размер по тексту */
         .message {
             max-width: 70%;
             padding: 0.5rem 1rem;
@@ -330,11 +338,14 @@
             margin-left: 0.3rem;
         }
 
+        /* Убираем бирюзовую подложку у фото, видео и аудио */
         .message img {
             max-width: 200px;
             border-radius: 1rem;
             margin-top: 0.3rem;
             cursor: pointer;
+            background: transparent;
+            border: none;
         }
 
         .message video {
@@ -344,22 +355,8 @@
             object-fit: cover;
             margin-top: 0.3rem;
             cursor: pointer;
-            transition: transform 0.3s;
             background: transparent;
             border: none;
-        }
-
-        .message video.zoomed {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(1);
-            width: 80vw;
-            height: 80vw;
-            max-width: 300px;
-            max-height: 300px;
-            z-index: 1000;
-            border-radius: 50%;
         }
 
         .message audio {
@@ -390,10 +387,6 @@
             transition: transform 0.1s;
         }
 
-        .reaction:hover {
-            transform: scale(1.1);
-        }
-
         .action-area {
             display: inline-block;
             width: 30px;
@@ -405,10 +398,6 @@
 
         .message:hover .action-area {
             opacity: 0.7;
-        }
-
-        .action-area:hover {
-            opacity: 1;
         }
 
         .context-menu {
@@ -456,10 +445,6 @@
             transition: transform 0.1s;
         }
 
-        .reaction-emoji:hover {
-            transform: scale(1.2);
-        }
-
         .typing-indicator {
             font-size: 0.7rem;
             color: #2a9d8f;
@@ -497,10 +482,6 @@
             transition: all 0.2s;
         }
 
-        .media-btn:active {
-            transform: scale(0.95);
-        }
-
         #message-input {
             flex: 1;
             background: rgba(26, 31, 31, 0.8);
@@ -527,7 +508,6 @@
             font-size: 1.2rem;
             transition: all 0.2s;
             flex-shrink: 0;
-            position: relative;
         }
 
         .action-btn:active {
@@ -537,10 +517,6 @@
         .action-btn.recording {
             background: #e74c3c !important;
             animation: pulse 0.5s infinite;
-        }
-
-        .action-btn.locked {
-            background: #e74c3c;
         }
 
         .recording-panel {
@@ -579,15 +555,6 @@
             font-size: 0.9rem;
             font-weight: bold;
             color: white;
-        }
-
-        .recording-panel .pause-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1rem;
-            cursor: pointer;
-            padding: 0.2rem;
         }
 
         .video-preview {
@@ -743,7 +710,6 @@
     <div id="recording-panel" class="recording-panel">
         <div class="mic-icon">🎤</div>
         <div class="recording-time" id="recording-time">0:00</div>
-        <button id="pause-recording" class="pause-btn" style="display: none;">⏸️</button>
     </div>
 
     <div id="video-preview" class="video-preview">
@@ -767,10 +733,9 @@
         let reactionMenu = null;
         let currentMode = 'voice';
         let isRecordingLocked = false;
-        let isPaused = false;
         let videoRecorder = null;
         let isSending = false;
-        let sentMessageIds = new Set();
+        let isTextSending = false;
 
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
@@ -790,7 +755,6 @@
         const mobileOverlay = document.getElementById('mobile-overlay');
         const recordingPanel = document.getElementById('recording-panel');
         const recordingTimeSpan = document.getElementById('recording-time');
-        const pauseBtn = document.getElementById('pause-recording');
         const videoPreview = document.getElementById('video-preview');
         const previewVideo = document.getElementById('preview-video');
 
@@ -877,7 +841,6 @@
                     hideRecordingPanel();
                     isRecording = false;
                     isRecordingLocked = false;
-                    isPaused = false;
                 };
                 
                 mediaRecorder.start();
@@ -885,7 +848,6 @@
                 recordingStartTime = Date.now();
                 showRecordingPanel();
                 startRecordingTimer();
-                pauseBtn.style.display = 'none';
             } catch (err) {
                 console.error('Microphone error:', err);
                 alert('Please allow microphone access');
@@ -931,7 +893,6 @@
                 recordingStartTime = Date.now();
                 showRecordingPanel();
                 startRecordingTimer();
-                pauseBtn.style.display = 'block';
             } catch (err) {
                 console.error('Camera error:', err);
                 alert('Please allow camera access');
@@ -949,7 +910,6 @@
             hideRecordingPanel();
             isRecording = false;
             isRecordingLocked = false;
-            isPaused = false;
         }
 
         function cancelRecording() {
@@ -969,30 +929,7 @@
             hideRecordingPanel();
             isRecording = false;
             isRecordingLocked = false;
-            isPaused = false;
             videoPreview.classList.remove('show');
-        }
-
-        function pauseRecording() {
-            if (isPaused) {
-                if (mediaRecorder && mediaRecorder.state === 'paused') {
-                    mediaRecorder.resume();
-                }
-                if (videoRecorder && videoRecorder.state === 'paused') {
-                    videoRecorder.resume();
-                }
-                pauseBtn.innerHTML = '⏸️';
-                isPaused = false;
-            } else {
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    mediaRecorder.pause();
-                }
-                if (videoRecorder && videoRecorder.state === 'recording') {
-                    videoRecorder.pause();
-                }
-                pauseBtn.innerHTML = '▶️';
-                isPaused = true;
-            }
         }
 
         function showRecordingPanel() {
@@ -1015,8 +952,6 @@
                 recordingTimeSpan.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             }, 1000);
         }
-
-        pauseBtn.onclick = pauseRecording;
 
         let pressTimer = null;
         let isLongPress = false;
@@ -1207,23 +1142,6 @@
             return '';
         }
 
-        function zoomVideo(videoElement) {
-            if (videoElement.classList.contains('zoomed')) {
-                videoElement.classList.remove('zoomed');
-                videoElement.controls = false;
-                videoElement.pause();
-            } else {
-                document.querySelectorAll('.message video').forEach(v => v.classList.remove('zoomed'));
-                videoElement.classList.add('zoomed');
-                videoElement.controls = true;
-                videoElement.play();
-                videoElement.addEventListener('ended', () => {
-                    videoElement.classList.remove('zoomed');
-                    videoElement.controls = false;
-                }, { once: true });
-            }
-        }
-
         function renderMessages() {
             if (!currentMessages.length) {
                 messagesArea.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
@@ -1264,7 +1182,20 @@
                 if (video) {
                     video.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        zoomVideo(video);
+                        if (video.classList.contains('zoomed')) {
+                            video.classList.remove('zoomed');
+                            video.controls = false;
+                            video.pause();
+                        } else {
+                            document.querySelectorAll('.message video').forEach(v => v.classList.remove('zoomed'));
+                            video.classList.add('zoomed');
+                            video.controls = true;
+                            video.play();
+                            video.addEventListener('ended', () => {
+                                video.classList.remove('zoomed');
+                                video.controls = false;
+                            }, { once: true });
+                        }
                     });
                 }
             });
@@ -1392,8 +1323,6 @@
             });
         }
 
-        let isTextSending = false;
-
         function sendMessage() {
             if (!currentChatUser) {
                 alert('Select a friend first');
@@ -1403,19 +1332,6 @@
             if (!text) return;
             if (isTextSending) return;
             isTextSending = true;
-            
-            const tempId = Date.now().toString();
-            const tempMessage = {
-                id: tempId,
-                type: 'text',
-                content: text,
-                from: currentUser.username,
-                from_id: currentUser.id,
-                timestamp: new Date().toISOString(),
-                status: 'sent'
-            };
-            currentMessages.push(tempMessage);
-            renderMessages();
             
             socket.emit('private_message', {
                 from_user_id: currentUser.id,
@@ -1525,8 +1441,8 @@
         });
 
         socket.on('new_private_message', (data) => {
-            const existingIndex = currentMessages.findIndex(m => m.id === data.message.id);
-            if (existingIndex === -1) {
+            const exists = currentMessages.some(m => m.id === data.message.id);
+            if (!exists) {
                 currentMessages.push(data.message);
                 if (currentChatUser && currentChatUser.id === data.from_user_id) {
                     renderMessages();
