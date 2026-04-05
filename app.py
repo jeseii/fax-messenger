@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)  # ← ИСПРАВЛЕНО: было Flask(name)
+app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fax-secret-key'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
@@ -61,7 +61,7 @@ unread_counts = {}
 def index():
     return render_template('index.html')
 
-@app.route('/static/<path:filename>')  # ← ИСПРАВЛЕНО
+@app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory('static', filename)
 
@@ -159,7 +159,7 @@ def upload_file():
     file_url = f"/uploads/{new_filename}"
     return jsonify({"url": file_url, "name": original_filename})
 
-@app.route('/uploads/<filename>')  # ← ИСПРАВЛЕНО
+@app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
@@ -312,7 +312,7 @@ def handle_private_message(data):
     from_username = users_db[from_user_id]['username']
     
     message_data = {
-        "id": str(uuid.uuid4())[:8],  # ← ИСПРАВЛЕНО: убраны пробелы
+        "id": str(uuid.uuid4())[:8],
         "type": message.get('type', 'text'),
         "content": message.get('content', ''),
         "from": from_username,
@@ -404,6 +404,6 @@ def update_friends_list(user_id):
     sid = active_users[user_id]['sid']
     emit('friends_list', friends_list, to=sid)
 
-if __name__ == '__main__':  # ← ИСПРАВЛЕНО
+if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
