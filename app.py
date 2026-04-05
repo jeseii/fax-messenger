@@ -720,7 +720,7 @@ def handle_get_friends():
                 "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
     
-    emit('friends_list', friends_list)
+    emit('friends_list', friends_list, to=request.sid)
 
 @socketio.on('get_messages')
 def handle_get_messages(data):
@@ -731,9 +731,9 @@ def handle_get_messages(data):
         unread_counts[user_id][chat_id] = 0
     
     if user_id in private_messages and chat_id in private_messages[user_id]:
-        emit('messages_history', private_messages[user_id][chat_id])
+        emit('messages_history', private_messages[user_id][chat_id], to=request.sid)
     else:
-        emit('messages_history', [])
+        emit('messages_history', [], to=request.sid)
 
 @socketio.on('private_message')
 def handle_private_message(data):
