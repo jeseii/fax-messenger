@@ -98,25 +98,20 @@ unread_counts = {}
 def upload_avatar():
     if 'file' not in request.files:
         return jsonify({"error": "No file"}), 400
-    
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
-    
     user_id = request.form.get('user_id')
     if not user_id:
         return jsonify({"error": "No user_id"}), 400
-    
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'png'
     filename = f"{user_id}.{ext}"
     filepath = os.path.join('avatars', filename)
     file.save(filepath)
-    
     avatar_url = f"/avatars/{filename}"
     if user_id in users_db:
         users_db[user_id]['avatar'] = avatar_url
         save_users(users_db)
-    
     return jsonify({"url": avatar_url})
 
 @app.route('/avatars/<filename>')
@@ -128,21 +123,17 @@ def serve_avatar(filename):
 def upload_sticker():
     if 'file' not in request.files:
         return jsonify({"error": "No file"}), 400
-    
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
-    
     sticker_id = str(uuid.uuid4())[:8]
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'png'
     filename = f"{sticker_id}.{ext}"
     filepath = os.path.join('stickers', filename)
     file.save(filepath)
-    
     sticker_url = f"/stickers/{filename}"
     stickers_db[sticker_id] = {"url": sticker_url, "created_at": datetime.now().isoformat()}
     save_stickers(stickers_db)
-    
     return jsonify({"id": sticker_id, "url": sticker_url})
 
 @app.route('/stickers/<filename>')
@@ -158,7 +149,6 @@ def get_stickers():
 def get_friends_for_group():
     data = request.json
     user_id = data.get('user_id')
-    
     friends_list = []
     for friend_id in friends_db.get(user_id, []):
         if friend_id in users_db:
@@ -167,7 +157,6 @@ def get_friends_for_group():
                 "username": users_db[friend_id]['username'],
                 "avatar": users_db[friend_id].get('avatar')
             })
-    
     return jsonify(friends_list)
 
 @app.route('/api/create_group', methods=['POST'])
@@ -181,8 +170,8 @@ def create_group():
         return jsonify({"error": "User not found"}), 404
     
     all_members = list(set([creator_id] + member_ids))
-    
     group_id = str(uuid.uuid4())[:8]
+    
     groups_db[group_id] = {
         "id": group_id,
         "name": group_name,
@@ -211,7 +200,8 @@ def create_group():
     for member_id in all_members:
         if member_id in active_users:
             emit('group_created', {"group": groups_db[group_id]}, to=active_users[member_id]['sid'])
-            update_groups_list(member_id)
+            user_groups = [g for g in groups_db.values() if member_id in g['members']]
+            emit('groups_list', user_groups, to=active_users[member_id]['sid'])
     
     return jsonify(groups_db[group_id])
 
@@ -224,28 +214,14 @@ def add_to_group():
     
     if group_id not in groups_db:
         return jsonify({"error": "Group not found"}), 404
-    
     if user_id != groups_db[group_id]['creator']:
         return jsonify({"error": "Only creator can add members"}), 403
     
     if new_member_id not in groups_db[group_id]['members']:
         groups_db[group_id]['members'].append(new_member_id)
         save_groups(groups_db)
-        
-        # Создаём историю для нового участника
-        if group_id not in private_messages:
-            private_messages[group_id] = {}
-        if new_member_id not in private_messages:
-            private_messages[new_member_id] = {}
-        if group_id not in private_messages[new_member_id]:
-            private_messages[new_member_id][group_id] = []
-        if new_member_id not in private_messages[group_id]:
-            private_messages[group_id][new_member_id] = []
-        save_messages(private_messages)
-        
         if new_member_id in active_users:
             emit('group_updated', {"group": groups_db[group_id]}, to=active_users[new_member_id]['sid'])
-            update_groups_list(new_member_id)
     
     return jsonify(groups_db[group_id])
 
@@ -257,27 +233,19 @@ def leave_group():
     
     if group_id not in groups_db:
         return jsonify({"error": "Group not found"}), 404
-    
     if user_id in groups_db[group_id]['members']:
         groups_db[group_id]['members'].remove(user_id)
-        
         if len(groups_db[group_id]['members']) == 0:
             del groups_db[group_id]
         else:
             save_groups(groups_db)
-    
     return jsonify({"success": True})
 
 @app.route('/api/get_groups', methods=['POST'])
 def get_groups():
     data = request.json
     user_id = data.get('user_id')
-    
-    user_groups = []
-    for gid, group in groups_db.items():
-        if user_id in group['members']:
-            user_groups.append(group)
-    
+    user_groups = [g for g in groups_db.values() if user_id in g['members']]
     return jsonify(user_groups)
 
 @app.route('/')
@@ -296,18 +264,15 @@ def serve_assetlinks():
 def login():
     data = request.json
     username = data.get('username')
-    
     user_id = None
     for uid, info in users_db.items():
         if info['username'] == username:
             user_id = uid
             break
-    
     if not user_id:
         user_id = str(uuid.uuid4())[:8]
         users_db[user_id] = {"username": username, "online": False}
         save_users(users_db)
-    
     return jsonify({"user_id": user_id, "username": username})
 
 @app.route('/api/search_users', methods=['POST'])
@@ -315,7 +280,6 @@ def search_users():
     data = request.json
     query = data.get('query', '').lower()
     current_user_id = data.get('user_id')
-    
     results = []
     for uid, info in users_db.items():
         if uid != current_user_id and query in info['username'].lower():
@@ -337,20 +301,16 @@ def add_friend():
     
     if friend_id not in users_db:
         return jsonify({"error": "User not found"}), 404
-    
     if user_id not in friends_db:
         friends_db[user_id] = []
-    
     if friend_id not in friends_db[user_id]:
         friends_db[user_id].append(friend_id)
         save_friends(friends_db)
-        
         if friend_id in active_users:
             socketio.emit('friend_added', {
                 "friend_id": user_id,
                 "friend_username": users_db[user_id]['username']
             }, to=active_users[friend_id]['sid'])
-    
     return jsonify({"success": True})
 
 @app.route('/api/remove_friend', methods=['POST'])
@@ -358,11 +318,9 @@ def remove_friend():
     data = request.json
     user_id = data.get('user_id')
     friend_id = data.get('friend_id')
-    
     if user_id in friends_db and friend_id in friends_db[user_id]:
         friends_db[user_id].remove(friend_id)
         save_friends(friends_db)
-    
     return jsonify({"success": True})
 
 @app.route('/api/search_messages', methods=['POST'])
@@ -371,13 +329,11 @@ def search_messages():
     user_id = data.get('user_id')
     chat_id = data.get('chat_id')
     query = data.get('query', '').lower()
-    
     results = []
     if user_id in private_messages and chat_id in private_messages[user_id]:
         for msg in private_messages[user_id][chat_id]:
             if msg.get('type') == 'text' and query in msg.get('content', '').lower():
                 results.append(msg)
-    
     return jsonify(results)
 
 @app.route('/api/save_draft', methods=['POST'])
@@ -386,12 +342,10 @@ def save_draft():
     user_id = data.get('user_id')
     chat_id = data.get('chat_id')
     draft_text = data.get('draft', '')
-    
     if user_id not in drafts:
         drafts[user_id] = {}
     drafts[user_id][chat_id] = draft_text
     save_drafts(drafts)
-    
     return jsonify({"success": True})
 
 @app.route('/api/get_draft', methods=['POST'])
@@ -399,7 +353,6 @@ def get_draft():
     data = request.json
     user_id = data.get('user_id')
     chat_id = data.get('chat_id')
-    
     draft = drafts.get(user_id, {}).get(chat_id, '')
     return jsonify({"draft": draft})
 
@@ -407,17 +360,14 @@ def get_draft():
 def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file"}), 400
-    
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
-    
     original_filename = secure_filename(file.filename)
     ext = original_filename.split('.')[-1] if '.' in original_filename else 'bin'
     new_filename = f"{datetime.now().timestamp()}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
     file.save(filepath)
-    
     file_url = f"/uploads/{new_filename}"
     return jsonify({"url": file_url, "name": original_filename})
 
@@ -433,17 +383,14 @@ def handle_connect():
 def handle_register(data):
     user_id = data.get('user_id')
     username = data.get('username')
-    
     if user_id and user_id in users_db:
         users_db[user_id]['online'] = True
         active_users[user_id] = {"username": username, "sid": request.sid}
         save_users(users_db)
-        
         if user_id not in private_messages:
             private_messages[user_id] = {}
         if user_id not in unread_counts:
             unread_counts[user_id] = {}
-        
         update_friends_list(user_id)
         update_groups_list(user_id)
 
@@ -451,23 +398,18 @@ def handle_register(data):
 def handle_mark_as_read(data):
     user_id = data.get('user_id')
     chat_id = data.get('chat_id')
-    
     if user_id in unread_counts:
         unread_counts[user_id][chat_id] = 0
-    
     if chat_id in active_users:
         emit('messages_read', {"by": user_id, "chat_with": chat_id}, to=active_users[chat_id]['sid'])
-    
     if user_id in private_messages and chat_id in private_messages[user_id]:
         for msg in private_messages[user_id][chat_id]:
             if msg['from_id'] == chat_id and msg.get('status') != 'read':
                 msg['status'] = 'read'
-    
     if chat_id in private_messages and user_id in private_messages[chat_id]:
         for msg in private_messages[chat_id][user_id]:
             if msg['from_id'] == user_id and msg.get('status') != 'read':
                 msg['status'] = 'read'
-    
     save_messages(private_messages)
 
 @socketio.on('edit_message')
@@ -482,13 +424,11 @@ def handle_edit_message(data):
             msg['content'] = new_content
             msg['edited'] = True
             break
-    
     for msg in private_messages.get(chat_id, {}).get(user_id, []):
         if msg['id'] == message_id and msg['from_id'] == user_id:
             msg['content'] = new_content
             msg['edited'] = True
             break
-    
     save_messages(private_messages)
     
     if user_id in active_users:
@@ -504,10 +444,8 @@ def handle_delete_message(data):
     
     if user_id in private_messages and chat_id in private_messages[user_id]:
         private_messages[user_id][chat_id] = [msg for msg in private_messages[user_id][chat_id] if msg['id'] != message_id]
-    
     if chat_id in private_messages and user_id in private_messages[chat_id]:
         private_messages[chat_id][user_id] = [msg for msg in private_messages[chat_id][user_id] if msg['id'] != message_id]
-    
     save_messages(private_messages)
     
     if user_id in active_users:
@@ -523,7 +461,6 @@ def handle_forward_message(data):
     
     if from_user_id not in users_db:
         return
-    
     from_username = users_db[from_user_id]['username']
     is_group = to_chat_id in groups_db
     chat_name = groups_db[to_chat_id]['name'] if is_group else users_db.get(to_chat_id, {}).get('username', '')
@@ -557,7 +494,6 @@ def handle_forward_message(data):
     if to_chat_id not in unread_counts:
         unread_counts[to_chat_id] = {}
     unread_counts[to_chat_id][from_user_id] = unread_counts[to_chat_id].get(from_user_id, 0) + 1
-    
     save_messages(private_messages)
     
     if is_group:
@@ -568,22 +504,24 @@ def handle_forward_message(data):
                     "from_username": from_username,
                     "message": forwarded_message,
                     "is_group": True,
-                    "group_name": groups_db[to_chat_id]['name']
+                    "group_name": groups_db[to_chat_id]['name'],
+                    "chat_id": to_chat_id
                 }, to=active_users[member_id]['sid'])
     else:
         if to_chat_id in active_users:
             emit('new_private_message', {
                 "from_user_id": from_user_id,
                 "from_username": from_username,
-                "message": forwarded_message
+                "message": forwarded_message,
+                "chat_id": to_chat_id
             }, to=active_users[to_chat_id]['sid'])
     
     emit('new_private_message', {
         "from_user_id": to_chat_id,
         "from_username": chat_name,
-        "message": forwarded_message
+        "message": forwarded_message,
+        "chat_id": to_chat_id
     }, to=request.sid)
-    
     update_friends_list(from_user_id)
 
 @socketio.on('reply_message')
@@ -595,7 +533,6 @@ def handle_reply_message(data):
     
     if from_user_id not in users_db:
         return
-    
     from_username = users_db[from_user_id]['username']
     is_group = to_chat_id in groups_db
     chat_name = groups_db[to_chat_id]['name'] if is_group else users_db.get(to_chat_id, {}).get('username', '')
@@ -629,7 +566,6 @@ def handle_reply_message(data):
     if to_chat_id not in unread_counts:
         unread_counts[to_chat_id] = {}
     unread_counts[to_chat_id][from_user_id] = unread_counts[to_chat_id].get(from_user_id, 0) + 1
-    
     save_messages(private_messages)
     
     if is_group:
@@ -640,22 +576,24 @@ def handle_reply_message(data):
                     "from_username": from_username,
                     "message": message_data,
                     "is_group": True,
-                    "group_name": groups_db[to_chat_id]['name']
+                    "group_name": groups_db[to_chat_id]['name'],
+                    "chat_id": to_chat_id
                 }, to=active_users[member_id]['sid'])
     else:
         if to_chat_id in active_users:
             emit('new_private_message', {
                 "from_user_id": from_user_id,
                 "from_username": from_username,
-                "message": message_data
+                "message": message_data,
+                "chat_id": to_chat_id
             }, to=active_users[to_chat_id]['sid'])
     
     emit('new_private_message', {
         "from_user_id": to_chat_id,
         "from_username": chat_name,
-        "message": message_data
+        "message": message_data,
+        "chat_id": to_chat_id
     }, to=request.sid)
-    
     update_friends_list(from_user_id)
 
 @socketio.on('add_reaction')
@@ -671,14 +609,12 @@ def handle_add_reaction(data):
                 msg['reactions'] = {}
             msg['reactions'][user_id] = reaction
             break
-    
     for msg in private_messages.get(chat_id, {}).get(user_id, []):
         if msg['id'] == message_id:
             if 'reactions' not in msg:
                 msg['reactions'] = {}
             msg['reactions'][user_id] = reaction
             break
-    
     save_messages(private_messages)
     
     if user_id in active_users:
@@ -690,7 +626,6 @@ def handle_add_reaction(data):
 def handle_join_group(data):
     user_id = data.get('user_id')
     group_id = data.get('group_id')
-    
     if group_id in groups_db and user_id in groups_db[group_id]['members']:
         if user_id not in private_messages:
             private_messages[user_id] = {}
@@ -705,10 +640,8 @@ def handle_get_friends():
         if info['sid'] == request.sid:
             user_id = uid
             break
-    
     if not user_id:
         return
-    
     friends_list = []
     for friend_id in friends_db.get(user_id, []):
         if friend_id in users_db:
@@ -719,17 +652,14 @@ def handle_get_friends():
                 "avatar": users_db[friend_id].get('avatar'),
                 "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
-    
     emit('friends_list', friends_list)
 
 @socketio.on('get_messages')
 def handle_get_messages(data):
     user_id = data.get('user_id')
     chat_id = data.get('chat_id')
-    
     if user_id in unread_counts:
         unread_counts[user_id][chat_id] = 0
-    
     if user_id in private_messages and chat_id in private_messages[user_id]:
         emit('messages_history', private_messages[user_id][chat_id])
     else:
@@ -779,7 +709,6 @@ def handle_private_message(data):
     if to_chat_id not in unread_counts:
         unread_counts[to_chat_id] = {}
     unread_counts[to_chat_id][from_user_id] = unread_counts[to_chat_id].get(from_user_id, 0) + 1
-    
     save_messages(private_messages)
     
     if is_group:
@@ -790,20 +719,23 @@ def handle_private_message(data):
                     "from_username": from_username,
                     "message": message_data,
                     "is_group": True,
-                    "group_name": groups_db[to_chat_id]['name']
+                    "group_name": groups_db[to_chat_id]['name'],
+                    "chat_id": to_chat_id
                 }, to=active_users[member_id]['sid'])
     else:
         if to_chat_id in active_users:
             emit('new_private_message', {
                 "from_user_id": from_user_id,
                 "from_username": from_username,
-                "message": message_data
+                "message": message_data,
+                "chat_id": to_chat_id
             }, to=active_users[to_chat_id]['sid'])
     
     emit('new_private_message', {
         "from_user_id": to_chat_id,
         "from_username": chat_name,
-        "message": message_data
+        "message": message_data,
+        "chat_id": to_chat_id
     }, to=request.sid)
     
     update_friends_list(from_user_id)
@@ -817,10 +749,8 @@ def handle_typing_private(data):
     
     if from_user_id not in users_db:
         return
-    
     is_group = to_chat_id in groups_db
-    
-    if is_group:
+    if is_group and to_chat_id in groups_db:
         for member_id in groups_db[to_chat_id]['members']:
             if member_id in active_users and member_id != from_user_id:
                 emit('user_typing_private', {
@@ -845,7 +775,6 @@ def handle_disconnect():
             users_db[user_id]['online'] = False
             del active_users[user_id]
             save_users(users_db)
-            
             for uid in active_users:
                 update_friends_list(uid)
             break
@@ -853,7 +782,6 @@ def handle_disconnect():
 def update_friends_list(user_id):
     if user_id not in active_users:
         return
-    
     friends_list = []
     for friend_id in friends_db.get(user_id, []):
         if friend_id in users_db:
@@ -864,19 +792,13 @@ def update_friends_list(user_id):
                 "avatar": users_db[friend_id].get('avatar'),
                 "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
-    
     sid = active_users[user_id]['sid']
     emit('friends_list', friends_list, to=sid)
 
 def update_groups_list(user_id):
     if user_id not in active_users:
         return
-    
-    groups_list = []
-    for gid, group in groups_db.items():
-        if user_id in group['members']:
-            groups_list.append(group)
-    
+    groups_list = [g for g in groups_db.values() if user_id in g['members']]
     sid = active_users[user_id]['sid']
     emit('groups_list', groups_list, to=sid)
 
