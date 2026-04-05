@@ -257,6 +257,17 @@
             font-size: 1rem;
         }
 
+        .search-chat-btn {
+            background: rgba(30, 42, 42, 0.7);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 1rem;
+            cursor: pointer;
+            color: white;
+        }
+
         .back-btn {
             display: none;
             background: rgba(30, 42, 42, 0.7);
@@ -299,6 +310,7 @@
             width: auto;
             background: rgba(30, 36, 36, 0.7);
             backdrop-filter: blur(5px);
+            transition: transform 0.2s ease;
         }
 
         .message.own {
@@ -312,6 +324,22 @@
             align-self: flex-start;
             background: rgba(30, 36, 36, 0.7);
             border-bottom-left-radius: 0.25rem;
+        }
+
+        .message.swipe-left {
+            transform: translateX(-20px);
+        }
+
+        .message.swipe-right {
+            transform: translateX(20px);
+        }
+
+        .reply-indicator {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-bottom: 0.2rem;
+            padding-left: 0.5rem;
+            border-left: 2px solid #2a9d8f;
         }
 
         .message .name {
@@ -335,6 +363,12 @@
             font-size: 0.6rem;
             opacity: 0.5;
             margin-left: 0.3rem;
+        }
+
+        .forward-badge {
+            font-size: 0.6rem;
+            opacity: 0.6;
+            margin-bottom: 0.2rem;
         }
 
         .message img {
@@ -452,6 +486,83 @@
             cursor: pointer;
             padding: 0.3rem;
             transition: transform 0.1s;
+        }
+
+        .search-messages-panel {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            background: rgba(26, 31, 31, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 0.8rem;
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 60;
+            border-bottom: 1px solid rgba(42, 157, 143, 0.3);
+        }
+
+        .search-messages-panel.show {
+            display: flex;
+        }
+
+        .search-messages-panel input {
+            background: rgba(30, 42, 42, 0.8);
+            border: 1px solid rgba(42, 157, 143, 0.3);
+            border-radius: 2rem;
+            padding: 0.6rem 1rem;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .search-results-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(42, 157, 143, 0.2);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .search-result-item:hover {
+            background: rgba(42, 157, 143, 0.3);
+        }
+
+        .reply-bar {
+            position: fixed;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            background: rgba(26, 31, 31, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 0.5rem 1rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            border-top: 1px solid rgba(42, 157, 143, 0.3);
+            z-index: 55;
+        }
+
+        .reply-bar.show {
+            display: flex;
+        }
+
+        .reply-bar .reply-info {
+            flex: 1;
+            font-size: 0.8rem;
+        }
+
+        .reply-bar .cancel-reply {
+            background: rgba(231, 76, 60, 0.7);
+            border: none;
+            border-radius: 1rem;
+            padding: 0.2rem 0.8rem;
+            color: white;
+            cursor: pointer;
         }
 
         .typing-indicator {
@@ -641,6 +752,40 @@
             color: #666;
         }
 
+        .forward-select-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(26, 31, 31, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1rem;
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 70;
+            border-top: 1px solid rgba(42, 157, 143, 0.3);
+        }
+
+        .forward-select-panel.show {
+            display: flex;
+        }
+
+        .forward-friends-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .forward-friend-item {
+            padding: 0.8rem;
+            border-bottom: 1px solid rgba(42, 157, 143, 0.2);
+            cursor: pointer;
+        }
+
+        .forward-friend-item:hover {
+            background: rgba(42, 157, 143, 0.3);
+        }
+
         @keyframes pulse {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
@@ -691,7 +836,7 @@
                 gap: 0.4rem;
                 min-height: 52px;
             }
-            .video-preview {
+            .video-preview, .message video.zoomed {
                 width: 180px;
                 height: 180px;
             }
@@ -701,10 +846,6 @@
             .locked-panel {
                 bottom: 120px;
                 right: 10px;
-            }
-            .message video.zoomed {
-                width: 180px;
-                height: 180px;
             }
         }
 
@@ -749,7 +890,20 @@
             <div class="chat-header">
                 <button id="back-btn" class="back-btn">← Back</button>
                 <h4 id="selected-chat-name">Select a chat</h4>
-                <button id="remove-friend-btn" class="remove-friend-btn" style="display: none;">Remove</button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="search-chat-btn" class="search-chat-btn">🔍</button>
+                    <button id="remove-friend-btn" class="remove-friend-btn" style="display: none;">Remove</button>
+                </div>
+            </div>
+
+            <div id="search-messages-panel" class="search-messages-panel">
+                <input type="text" id="search-messages-input" placeholder="Search in chat...">
+                <div id="search-messages-results" class="search-results-list"></div>
+            </div>
+
+            <div id="reply-bar" class="reply-bar">
+                <div class="reply-info" id="reply-info">Replying to...</div>
+                <button id="cancel-reply" class="cancel-reply">Cancel</button>
             </div>
 
             <div class="messages-area" id="messages-area">
@@ -781,6 +935,12 @@
         <video id="preview-video" autoplay muted playsinline></video>
     </div>
 
+    <div id="forward-select-panel" class="forward-select-panel">
+        <div style="font-size: 0.9rem; padding: 0.5rem;">Select friend to forward:</div>
+        <div id="forward-friends-list" class="forward-friends-list"></div>
+        <button id="cancel-forward" class="cancel-reply">Cancel</button>
+    </div>
+
     <script>
         const socket = io();
 
@@ -805,9 +965,13 @@
         let recordingStartTime = null;
         let recordingInterval = null;
         let recordedBlob = null;
+        let touchStartX = 0;
         let touchStartY = 0;
         let pressTimer = null;
         let isLongPress = false;
+        let currentSwipeMessage = null;
+        let forwardMessage = null;
+        let replyToMessage = null;
 
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
@@ -834,6 +998,16 @@
         const cancelLockedBtn = document.getElementById('cancel-locked');
         const videoPreview = document.getElementById('video-preview');
         const previewVideo = document.getElementById('preview-video');
+        const searchChatBtn = document.getElementById('search-chat-btn');
+        const searchMessagesPanel = document.getElementById('search-messages-panel');
+        const searchMessagesInput = document.getElementById('search-messages-input');
+        const searchMessagesResults = document.getElementById('search-messages-results');
+        const replyBar = document.getElementById('reply-bar');
+        const replyInfo = document.getElementById('reply-info');
+        const cancelReplyBtn = document.getElementById('cancel-reply');
+        const forwardSelectPanel = document.getElementById('forward-select-panel');
+        const forwardFriendsList = document.getElementById('forward-friends-list');
+        const cancelForwardBtn = document.getElementById('cancel-forward');
 
         function saveUserToStorage(user) {
             if (!user) return;
@@ -911,6 +1085,137 @@
         };
 
         mobileOverlay.onclick = closeFriendsPanel;
+
+        // Сохранение черновика
+        async function saveDraft() {
+            if (!currentUser || !currentChatUser) return;
+            const draftText = messageInput.value;
+            await fetch('/api/save_draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    friend_id: currentChatUser.id,
+                    draft: draftText
+                })
+            });
+        }
+
+        // Загрузка черновика
+        async function loadDraft() {
+            if (!currentUser || !currentChatUser) return;
+            const res = await fetch('/api/get_draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    friend_id: currentChatUser.id
+                })
+            });
+            const data = await res.json();
+            if (data.draft) {
+                messageInput.value = data.draft;
+                updateActionButton();
+            }
+        }
+
+        // Поиск по сообщениям
+        searchChatBtn.onclick = () => {
+            searchMessagesPanel.classList.toggle('show');
+            if (searchMessagesPanel.classList.contains('show')) {
+                searchMessagesInput.focus();
+            }
+        };
+
+        searchMessagesInput.addEventListener('input', async () => {
+            const query = searchMessagesInput.value.trim();
+            if (query.length < 2) {
+                searchMessagesResults.innerHTML = '';
+                return;
+            }
+            
+            const res = await fetch('/api/search_messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    friend_id: currentChatUser.id,
+                    query: query
+                })
+            });
+            const results = await res.json();
+            
+            if (results.length > 0) {
+                searchMessagesResults.innerHTML = results.map(msg => `
+                    <div class="search-result-item" data-message-id="${msg.id}">
+                        <div style="font-weight: bold;">${escapeHtml(msg.from)}</div>
+                        <div>${escapeHtml(msg.content).substring(0, 100)}</div>
+                        <div style="font-size: 0.7rem; opacity: 0.7;">${formatTime(msg.timestamp)}</div>
+                    </div>
+                `).join('');
+                
+                document.querySelectorAll('.search-result-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const messageId = el.dataset.messageId;
+                        const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
+                        if (messageElement) {
+                            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            messageElement.style.background = 'rgba(42, 157, 143, 0.5)';
+                            setTimeout(() => {
+                                messageElement.style.background = '';
+                            }, 2000);
+                        }
+                        searchMessagesPanel.classList.remove('show');
+                        searchMessagesInput.value = '';
+                        searchMessagesResults.innerHTML = '';
+                    });
+                });
+            } else {
+                searchMessagesResults.innerHTML = '<div style="padding: 0.5rem;">No messages found</div>';
+            }
+        });
+
+        // Отмена реплая
+        cancelReplyBtn.onclick = () => {
+            replyToMessage = null;
+            replyBar.classList.remove('show');
+        };
+
+        function showReplyBar(message) {
+            replyToMessage = message;
+            replyInfo.innerHTML = `Replying to: ${escapeHtml(message.content.substring(0, 50))}${message.content.length > 50 ? '...' : ''}`;
+            replyBar.classList.add('show');
+        }
+
+        // Пересылка
+        function showForwardSelect(message) {
+            forwardMessage = message;
+            const otherFriends = friendsList.filter(f => f.id !== currentChatUser?.id);
+            forwardFriendsList.innerHTML = otherFriends.map(f => `
+                <div class="forward-friend-item" data-friend-id="${f.id}" data-friend-name="${f.username}">
+                    ${escapeHtml(f.username)} ${f.online ? '🟢' : '⚫'}
+                </div>
+            `).join('');
+            forwardSelectPanel.classList.add('show');
+            
+            document.querySelectorAll('.forward-friend-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const friendId = el.dataset.friendId;
+                    socket.emit('forward_message', {
+                        from_user_id: currentUser.id,
+                        to_user_id: friendId,
+                        message: forwardMessage
+                    });
+                    forwardSelectPanel.classList.remove('show');
+                    forwardMessage = null;
+                });
+            });
+        }
+
+        cancelForwardBtn.onclick = () => {
+            forwardSelectPanel.classList.remove('show');
+            forwardMessage = null;
+        };
 
         function updateActionButton() {
             const hasText = messageInput.value.trim().length > 0;
@@ -1069,11 +1374,21 @@
                 const res = await fetch('/upload', { method: 'POST', body: formData });
                 const data = await res.json();
                 if (res.ok) {
+                    const messageData = { type: currentMode === 'voice' ? 'voice' : 'video', content: data.url, name: data.name };
+                    if (replyToMessage) {
+                        messageData.reply_to = {
+                            id: replyToMessage.id,
+                            content: replyToMessage.content,
+                            from: replyToMessage.from
+                        };
+                    }
                     socket.emit('private_message', {
                         from_user_id: currentUser.id,
                         to_user_id: currentChatUser.id,
-                        message: { type: currentMode === 'voice' ? 'voice' : 'video', content: data.url, name: data.name }
+                        message: messageData
                     });
+                    replyToMessage = null;
+                    replyBar.classList.remove('show');
                 }
                 isSending = false;
                 recordedBlob = null;
@@ -1137,6 +1452,103 @@
                 pauseVoiceRecording();
             }
         };
+
+        // Обработка свайпов для реплая
+        function onTouchStart(e) {
+            if (!currentChatUser) return;
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            
+            // Находим сообщение под пальцем
+            const element = document.elementFromPoint(touchStartX, touchStartY);
+            currentSwipeMessage = element?.closest('.message');
+            
+            if (currentSwipeMessage) {
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    const messageId = currentSwipeMessage.dataset.messageId;
+                    const message = currentMessages.find(m => m.id === messageId);
+                    if (message) {
+                        showContextMenuForForward(touchStartX, touchStartY, message);
+                    }
+                }, 500);
+            }
+        }
+
+        function onTouchMove(e) {
+            if (!currentSwipeMessage) return;
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+            
+            if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+                
+                const isOwn = currentSwipeMessage.classList.contains('own');
+                // Своё сообщение свайп влево, чужое - свайп вправо
+                if ((isOwn && deltaX < 0) || (!isOwn && deltaX > 0)) {
+                    const messageId = currentSwipeMessage.dataset.messageId;
+                    const message = currentMessages.find(m => m.id === messageId);
+                    if (message) {
+                        showReplyBar(message);
+                        currentSwipeMessage.classList.add(isOwn ? 'swipe-left' : 'swipe-right');
+                        setTimeout(() => {
+                            currentSwipeMessage.classList.remove('swipe-left', 'swipe-right');
+                        }, 200);
+                    }
+                }
+                currentSwipeMessage = null;
+            }
+        }
+
+        function onTouchEnd() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            currentSwipeMessage = null;
+            isLongPress = false;
+        }
+
+        function showContextMenuForForward(x, y, message) {
+            if (contextMenu) contextMenu.remove();
+            contextMenu = document.createElement('div');
+            contextMenu.className = 'context-menu';
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+            contextMenu.innerHTML = `
+                <div class="context-menu-item" data-action="forward">↪️ Forward</div>
+                ${message.from_id === currentUser?.id && message.type === 'text' ? '<div class="context-menu-item" data-action="edit">✏️ Edit</div>' : ''}
+                ${message.from_id === currentUser?.id ? '<div class="context-menu-item" data-action="delete">🗑️ Delete</div>' : ''}
+            `;
+            document.body.appendChild(contextMenu);
+            
+            contextMenu.querySelector('[data-action="forward"]')?.addEventListener('click', () => {
+                showForwardSelect(message);
+                contextMenu.remove();
+            });
+            contextMenu.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
+                editMessage(message.id);
+                contextMenu.remove();
+            });
+            contextMenu.querySelector('[data-action="delete"]')?.addEventListener('click', () => {
+                deleteMessage(message.id);
+                contextMenu.remove();
+            });
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => contextMenu.remove(), { once: true });
+            }, 10);
+        }
+
+        // Добавляем обработчики свайпов
+        messagesArea.addEventListener('touchstart', onTouchStart);
+        messagesArea.addEventListener('touchmove', onTouchMove);
+        messagesArea.addEventListener('touchend', onTouchEnd);
 
         function onActionButtonStart(e) {
             if (!currentChatUser) return;
@@ -1245,6 +1657,11 @@
         }
 
         function selectChat(friend) {
+            // Сохраняем черновик перед переключением
+            if (currentChatUser) {
+                saveDraft();
+            }
+            
             currentChatUser = friend;
             selectedChatName.innerText = friend.username;
             removeFriendBtn.style.display = 'block';
@@ -1259,6 +1676,9 @@
                 user_id: currentUser.id,
                 other_user_id: friend.id
             });
+            
+            // Загружаем черновик
+            setTimeout(() => loadDraft(), 100);
             
             if (window.innerWidth <= 600) closeFriendsPanel();
         }
@@ -1326,32 +1746,23 @@
             if (videoElement.classList.contains('zoomed')) {
                 videoElement.classList.remove('zoomed');
                 videoElement.style.position = '';
-                videoElement.style.top = '';
-                videoElement.style.left = '';
                 videoElement.style.width = '';
                 videoElement.style.height = '';
-                videoElement.style.zIndex = '';
                 videoElement.controls = false;
                 videoElement.pause();
             } else {
                 document.querySelectorAll('.message video').forEach(v => {
                     v.classList.remove('zoomed');
                     v.style.position = '';
-                    v.style.top = '';
-                    v.style.left = '';
                     v.style.width = '';
                     v.style.height = '';
-                    v.style.zIndex = '';
                     v.controls = false;
                 });
                 
                 videoElement.classList.add('zoomed');
                 videoElement.style.position = 'relative';
-                videoElement.style.top = '0';
-                videoElement.style.left = '0';
                 videoElement.style.width = '250px';
                 videoElement.style.height = '250px';
-                videoElement.style.zIndex = '10';
                 videoElement.controls = true;
                 videoElement.play();
                 
@@ -1360,11 +1771,8 @@
                 videoElement.addEventListener('ended', () => {
                     videoElement.classList.remove('zoomed');
                     videoElement.style.position = '';
-                    videoElement.style.top = '';
-                    videoElement.style.left = '';
                     videoElement.style.width = '';
                     videoElement.style.height = '';
-                    videoElement.style.zIndex = '';
                     videoElement.controls = false;
                 }, { once: true });
             }
@@ -1377,6 +1785,8 @@
             }
             messagesArea.innerHTML = currentMessages.map(msg => `
                 <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}" data-message-id="${msg.id}" data-message-type="${msg.type}" data-message-from="${msg.from_id}">
+                    ${msg.is_forwarded ? `<div class="forward-badge">📎 Forwarded from ${escapeHtml(msg.original_from)}</div>` : ''}
+                    ${msg.reply_to ? `<div class="reply-indicator">↩️ Reply to: ${escapeHtml(msg.reply_to.content.substring(0, 50))}${msg.reply_to.content.length > 50 ? '...' : ''}</div>` : ''}
                     ${msg.from_id !== currentUser?.id ? `<div class="name">${escapeHtml(msg.from)}</div>` : ''}
                     <div>${renderMessageContent(msg)}</div>
                     ${msg.edited ? `<span class="edited-badge">edited</span>` : ''}
@@ -1400,8 +1810,9 @@
                 actionArea.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const rect = msgEl.getBoundingClientRect();
+                    const message = currentMessages.find(m => m.id === messageId);
                     if (messageFrom === currentUser?.id) {
-                        showContextMenu(rect.left - 10, rect.top, messageId, messageType);
+                        showContextMenuForMessage(rect.left - 10, rect.top, message);
                     } else {
                         showReactionMenu(rect.right + 10, rect.top, messageId);
                     }
@@ -1419,50 +1830,36 @@
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
-        function renderReactions(msg) {
-            if (!msg.reactions) return '';
-            const reactions = {};
-            for (const [userId, reaction] of Object.entries(msg.reactions)) {
-                reactions[reaction] = (reactions[reaction] || 0) + 1;
-            }
-            return Object.entries(reactions).map(([reaction, count]) => 
-                `<span class="reaction" data-reaction="${reaction}">${reaction} ${count}</span>`
-            ).join('');
-        }
-
-        function renderMessageContent(msg) {
-            if (msg.type === 'text') return escapeHtml(msg.content);
-            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
-            if (msg.type === 'video') return `<video src="${msg.content}" playsinline autoplay loop muted></video>`;
-            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
-            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
-            return msg.content;
-        }
-
-        function showContextMenu(x, y, messageId, messageType) {
+        function showContextMenuForMessage(x, y, message) {
             if (contextMenu) contextMenu.remove();
             contextMenu = document.createElement('div');
             contextMenu.className = 'context-menu';
             contextMenu.style.left = (x - 150) + 'px';
             contextMenu.style.top = y + 'px';
             
-            if (messageType === 'text') {
+            if (message.type === 'text') {
                 contextMenu.innerHTML = `
                     <div class="context-menu-item" data-action="edit">✏️ Edit</div>
                     <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+                    <div class="context-menu-item" data-action="forward">↪️ Forward</div>
                 `;
                 contextMenu.querySelector('[data-action="edit"]').onclick = () => {
-                    editMessage(messageId);
+                    editMessage(message.id);
                     contextMenu.remove();
                 };
             } else {
                 contextMenu.innerHTML = `
                     <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+                    <div class="context-menu-item" data-action="forward">↪️ Forward</div>
                 `;
             }
             
             contextMenu.querySelector('[data-action="delete"]').onclick = () => {
-                deleteMessage(messageId);
+                deleteMessage(message.id);
+                contextMenu.remove();
+            };
+            contextMenu.querySelector('[data-action="forward"]').onclick = () => {
+                showForwardSelect(message);
                 contextMenu.remove();
             };
             
@@ -1539,6 +1936,26 @@
             });
         }
 
+        function renderReactions(msg) {
+            if (!msg.reactions) return '';
+            const reactions = {};
+            for (const [userId, reaction] of Object.entries(msg.reactions)) {
+                reactions[reaction] = (reactions[reaction] || 0) + 1;
+            }
+            return Object.entries(reactions).map(([reaction, count]) => 
+                `<span class="reaction" data-reaction="${reaction}">${reaction} ${count}</span>`
+            ).join('');
+        }
+
+        function renderMessageContent(msg) {
+            if (msg.type === 'text') return escapeHtml(msg.content);
+            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
+            if (msg.type === 'video') return `<video src="${msg.content}" playsinline autoplay loop muted></video>`;
+            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
+            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
+            return msg.content;
+        }
+
         function sendMessage() {
             if (!currentChatUser) {
                 alert('Select a friend first');
@@ -1549,13 +1966,24 @@
             if (isTextSending) return;
             isTextSending = true;
             
+            const messageData = { type: 'text', content: text };
+            if (replyToMessage) {
+                messageData.reply_to = {
+                    id: replyToMessage.id,
+                    content: replyToMessage.content,
+                    from: replyToMessage.from
+                };
+            }
+            
             socket.emit('private_message', {
                 from_user_id: currentUser.id,
                 to_user_id: currentChatUser.id,
-                message: { type: 'text', content: text }
+                message: messageData
             });
             messageInput.value = '';
             updateActionButton();
+            replyToMessage = null;
+            replyBar.classList.remove('show');
             
             setTimeout(() => {
                 isTextSending = false;
@@ -1569,11 +1997,21 @@
             const res = await fetch('/upload', { method: 'POST', body: formData });
             const data = await res.json();
             if (res.ok) {
+                const messageData = { type, content: data.url, name: data.name };
+                if (replyToMessage) {
+                    messageData.reply_to = {
+                        id: replyToMessage.id,
+                        content: replyToMessage.content,
+                        from: replyToMessage.from
+                    };
+                }
                 socket.emit('private_message', {
                     from_user_id: currentUser.id,
                     to_user_id: currentChatUser.id,
-                    message: { type, content: data.url, name: data.name }
+                    message: messageData
                 });
+                replyToMessage = null;
+                replyBar.classList.remove('show');
             }
         }
 
@@ -1723,7 +2161,12 @@
             }
         });
 
-        messageInput.addEventListener('input', updateActionButton);
+        messageInput.addEventListener('input', () => {
+            updateActionButton();
+            if (currentChatUser) {
+                saveDraft();
+            }
+        });
 
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
