@@ -26,10 +26,10 @@ os.makedirs('stickers', exist_ok=True)
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# VAPID ключи для push-уведомлений (сгенерируйте свои через pywebpush)
-# python -m pywebpush.vapid
-VAPID_PRIVATE_KEY = "YOUR_PRIVATE_KEY_HERE"
-VAPID_PUBLIC_KEY = "YOUR_PUBLIC_KEY_HERE"
+# ==================== VAPID КЛЮЧИ ДЛЯ PUSH УВЕДОМЛЕНИЙ ====================
+# ВАШИ СГЕНЕРИРОВАННЫЕ КЛЮЧИ:
+VAPID_PUBLIC_KEY = "BHaqMtvfxoeKIqSox-dx_EIImbbAUj6veyry8qcWa2oCh0fIYskLeDvJ0tMa9p5Mim1tsTAvjoazWToJE8-AciY"
+VAPID_PRIVATE_KEY = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3ltVEZDSWNLV2h1T2NwcWYKNzc0MDV3WUxKVUNidSt4T2ZmWkpySHpLaXR5aFJBTkNBQVIycWpMYjM4YUhpaUtrcU1mbmNmeENDSm0yd0ZJKwpyM3NxOHZLbkZtdHFBb2RIeUdMSkMzZzd5ZExUR3ZhZVRJcHRiYkV3TDQ2R3MxazZDUlBQZ0hJbQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
 VAPID_CLAIMS = {
     "sub": "mailto:fax@messenger.com"
 }
@@ -131,7 +131,7 @@ def send_push_notification(user_id, title, body, icon=None, data=None, call_type
     if user_id not in push_subscriptions:
         return False
     
-    # Если пользователь онлайн, не отправляем push (или отправляем как запасной вариант)
+    # Если пользователь онлайн, отправляем через SocketIO
     if user_id in active_users:
         socketio.emit('push_notification', {
             'title': title,
