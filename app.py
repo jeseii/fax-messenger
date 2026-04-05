@@ -18,7 +18,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 USERS_FILE = 'users_data.json'
 FRIENDS_FILE = 'friends_data.json'
 MESSAGES_FILE = 'messages_data.json'
-DRAFTS_FILE = 'drafts_data.json'
 
 def load_users():
     if os.path.exists(USERS_FILE):
@@ -50,20 +49,9 @@ def save_messages(data):
     with open(MESSAGES_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-def load_drafts():
-    if os.path.exists(DRAFTS_FILE):
-        with open(DRAFTS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-def save_drafts(data):
-    with open(DRAFTS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
 users_db = load_users()
 friends_db = load_friends()
 private_messages = load_messages()
-drafts = load_drafts()
 active_users = {}
 unread_counts = {}
 
@@ -151,47 +139,6 @@ def remove_friend():
     
     return jsonify({"success": True})
 
-@app.route('/api/search_messages', methods=['POST'])
-def search_messages():
-    """Поиск сообщений по тексту"""
-    data = request.json
-    user_id = data.get('user_id')
-    friend_id = data.get('friend_id')
-    query = data.get('query', '').lower()
-    
-    results = []
-    if user_id in private_messages and friend_id in private_messages[user_id]:
-        for msg in private_messages[user_id][friend_id]:
-            if msg.get('type') == 'text' and query in msg.get('content', '').lower():
-                results.append(msg)
-    
-    return jsonify(results)
-
-@app.route('/api/save_draft', methods=['POST'])
-def save_draft():
-    """Сохраняет черновик"""
-    data = request.json
-    user_id = data.get('user_id')
-    friend_id = data.get('friend_id')
-    draft_text = data.get('draft', '')
-    
-    if user_id not in drafts:
-        drafts[user_id] = {}
-    drafts[user_id][friend_id] = draft_text
-    save_drafts(drafts)
-    
-    return jsonify({"success": True})
-
-@app.route('/api/get_draft', methods=['POST'])
-def get_draft():
-    """Получает черновик"""
-    data = request.json
-    user_id = data.get('user_id')
-    friend_id = data.get('friend_id')
-    
-    draft = drafts.get(user_id, {}).get(friend_id, '')
-    return jsonify({"draft": draft})
-
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -233,10 +180,6 @@ def handle_register(data):
         if user_id not in unread_counts:
             unread_counts[user_id] = {}
         
-        for other_id, count in unread_counts.get(user_id, {}).items():
-            if count > 0:
-                emit('unread_count', {"from": other_id, "count": count}, to=request.sid)
-        
         update_friends_list(user_id)
 
 @socketio.on('mark_as_read')
@@ -248,210 +191,7 @@ def handle_mark_as_read(data):
         unread_counts[user_id][other_user_id] = 0
     
     if other_user_id in active_users:
-        to_sid = active_users[other_user_id]['sid']
-        emit('messages_read', {"by": user_id, "chat_with": other_user_id}, to=to_sid)
-    
-    for msg in private_messages.get(user_id, {}).get(other_user_id, []):
-        if msg['from_id'] == other_user_id and msg.get('status') != 'read':
-            msg['status'] = 'read'
-    
-    for msg in private_messages.get(other_user_id, {}).get(user_id, []):
-        if msg['from_id'] == user_id and msg.get('status') != 'read':
-            msg['status'] = 'read'
-    
-    save_messages(private_messages)
-
-@socketio.on('edit_message')
-def handle_edit_message(data):
-    message_id = data.get('message_id')
-    new_content = data.get('new_content')
-    user_id = data.get('user_id')
-    chat_with = data.get('chat_with')
-    
-    for msg in private_messages.get(user_id, {}).get(chat_with, []):
-        if msg['id'] == message_id and msg['from_id'] == user_id:
-            msg['content'] = new_content
-            msg['edited'] = True
-            break
-    
-    for msg in private_messages.get(chat_with, {}).get(user_id, []):
-        if msg['id'] == message_id and msg['from_id'] == user_id:
-            msg['content'] = new_content
-            msg['edited'] = True
-            break
-    
-    save_messages(private_messages)
-    
-    if user_id in active_users:
-        emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[user_id]['sid'])
-    if chat_with in active_users:
-        emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[chat_with]['sid'])
-
-@socketio.on('delete_message')
-def handle_delete_message(data):
-    message_id = data.get('message_id')
-    user_id = data.get('user_id')
-    chat_with = data.get('chat_with')
-    
-    if user_id in private_messages and chat_with in private_messages[user_id]:
-        private_messages[user_id][chat_with] = [msg for msg in private_messages[user_id][chat_with] if msg['id'] != message_id]
-    
-    if chat_with in private_messages and user_id in private_messages[chat_with]:
-        private_messages[chat_with][user_id] = [msg for msg in private_messages[chat_with][user_id] if msg['id'] != message_id]
-    
-    save_messages(private_messages)
-    
-    if user_id in active_users:
-        emit('message_deleted', {"message_id": message_id}, to=active_users[user_id]['sid'])
-    if chat_with in active_users:
-        emit('message_deleted', {"message_id": message_id}, to=active_users[chat_with]['sid'])
-
-@socketio.on('forward_message')
-def handle_forward_message(data):
-    """Пересылка сообщения"""
-    from_user_id = data.get('from_user_id')
-    to_user_id = data.get('to_user_id')
-    original_message = data.get('message')
-    
-    if from_user_id not in users_db or to_user_id not in users_db:
-        return
-    
-    from_username = users_db[from_user_id]['username']
-    
-    forwarded_message = {
-        "id": str(uuid.uuid4())[:8],
-        "type": original_message.get('type', 'text'),
-        "content": original_message.get('content', ''),
-        "from": from_username,
-        "from_id": from_user_id,
-        "timestamp": datetime.now().isoformat(),
-        "filename": original_message.get('filename', ''),
-        "is_forwarded": True,
-        "original_from": original_message.get('from', from_username)
-    }
-    
-    if from_user_id not in private_messages:
-        private_messages[from_user_id] = {}
-    if to_user_id not in private_messages[from_user_id]:
-        private_messages[from_user_id][to_user_id] = []
-    private_messages[from_user_id][to_user_id].append(forwarded_message)
-    
-    if to_user_id not in private_messages:
-        private_messages[to_user_id] = {}
-    if from_user_id not in private_messages[to_user_id]:
-        private_messages[to_user_id][from_user_id] = []
-    private_messages[to_user_id][from_user_id].append(forwarded_message)
-    
-    if to_user_id not in unread_counts:
-        unread_counts[to_user_id] = {}
-    unread_counts[to_user_id][from_user_id] = unread_counts[to_user_id].get(from_user_id, 0) + 1
-    
-    save_messages(private_messages)
-    
-    if to_user_id in active_users:
-        to_sid = active_users[to_user_id]['sid']
-        emit('new_private_message', {
-            "from_user_id": from_user_id,
-            "from_username": from_username,
-            "message": forwarded_message
-        }, to=to_sid)
-        emit('unread_count', {"from": from_user_id, "count": unread_counts[to_user_id][from_user_id]}, to=to_sid)
-    
-    emit('new_private_message', {
-        "from_user_id": to_user_id,
-        "from_username": users_db[to_user_id]['username'],
-        "message": forwarded_message
-    }, to=request.sid)
-    
-    update_friends_list(from_user_id)
-
-@socketio.on('reply_message')
-def handle_reply_message(data):
-    """Ответ на сообщение (реплай)"""
-    from_user_id = data.get('from_user_id')
-    to_user_id = data.get('to_user_id')
-    message = data.get('message')
-    reply_to = data.get('reply_to')
-    
-    if from_user_id not in users_db or to_user_id not in users_db:
-        return
-    
-    from_username = users_db[from_user_id]['username']
-    
-    message_data = {
-        "id": str(uuid.uuid4())[:8],
-        "type": message.get('type', 'text'),
-        "content": message.get('content', ''),
-        "from": from_username,
-        "from_id": from_user_id,
-        "timestamp": datetime.now().isoformat(),
-        "filename": message.get('name', ''),
-        "status": "sent",
-        "reply_to": reply_to
-    }
-    
-    if from_user_id not in private_messages:
-        private_messages[from_user_id] = {}
-    if to_user_id not in private_messages[from_user_id]:
-        private_messages[from_user_id][to_user_id] = []
-    private_messages[from_user_id][to_user_id].append(message_data)
-    
-    if to_user_id not in private_messages:
-        private_messages[to_user_id] = {}
-    if from_user_id not in private_messages[to_user_id]:
-        private_messages[to_user_id][from_user_id] = []
-    private_messages[to_user_id][from_user_id].append(message_data)
-    
-    if to_user_id not in unread_counts:
-        unread_counts[to_user_id] = {}
-    unread_counts[to_user_id][from_user_id] = unread_counts[to_user_id].get(from_user_id, 0) + 1
-    
-    save_messages(private_messages)
-    
-    if to_user_id in active_users:
-        to_sid = active_users[to_user_id]['sid']
-        emit('new_private_message', {
-            "from_user_id": from_user_id,
-            "from_username": from_username,
-            "message": message_data
-        }, to=to_sid)
-        emit('unread_count', {"from": from_user_id, "count": unread_counts[to_user_id][from_user_id]}, to=to_sid)
-    
-    emit('new_private_message', {
-        "from_user_id": to_user_id,
-        "from_username": users_db[to_user_id]['username'],
-        "message": message_data
-    }, to=request.sid)
-    
-    update_friends_list(from_user_id)
-
-@socketio.on('add_reaction')
-def handle_add_reaction(data):
-    message_id = data.get('message_id')
-    reaction = data.get('reaction')
-    user_id = data.get('user_id')
-    chat_with = data.get('chat_with')
-    
-    for msg in private_messages.get(user_id, {}).get(chat_with, []):
-        if msg['id'] == message_id:
-            if 'reactions' not in msg:
-                msg['reactions'] = {}
-            msg['reactions'][user_id] = reaction
-            break
-    
-    for msg in private_messages.get(chat_with, {}).get(user_id, []):
-        if msg['id'] == message_id:
-            if 'reactions' not in msg:
-                msg['reactions'] = {}
-            msg['reactions'][user_id] = reaction
-            break
-    
-    save_messages(private_messages)
-    
-    if user_id in active_users:
-        emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[user_id]['sid'])
-    if chat_with in active_users:
-        emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[chat_with]['sid'])
+        emit('messages_read', {"by": user_id, "chat_with": other_user_id}, to=active_users[other_user_id]['sid'])
 
 @socketio.on('get_friends')
 def handle_get_friends():
