@@ -3,6 +3,7 @@ import uuid
 import json
 import traceback
 from datetime import datetime
+from threading import Lock
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.utils import secure_filename
@@ -27,11 +28,11 @@ os.makedirs('stickers', exist_ok=True)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ==================== VAPID КЛЮЧИ ДЛЯ PUSH УВЕДОМЛЕНИЙ ====================
-# ВАШИ СГЕНЕРИРОВАННЫЕ КЛЮЧИ:
 VAPID_PUBLIC_KEY = "BHaqMtvfxoeKIqSox-dx_EIImbbAUj6veyry8qcWa2oCh0fIYskLeDvJ0tMa9p5Mim1tsTAvjoazWToJE8-AciY"
-VAPID_PRIVATE_KEY = "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3ltVEZDSWNLV2h1T2NwcWYKNzc0MDV3WUxKVUNidSt4T2ZmWkpySHpLaXR5aFJBTkNBQVIycWpMYjM4YUhpaUtrcU1mbmNmeENDSm0yd0ZJKwpyM3NxOHZLbkZtdHFBb2RIeUdMSkMzZzd5ZExUR3ZhZVRJcHRiYkV3TDQ2R3MxazZDUlBQZ0hJbQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"
+VAPID_PRIVATE_KEY = """LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3ltVEZDSWNLV2h1T2NwcWYKNzc0MDV3WUxKVUNidSt4T2ZmWkpySHpLaXR5aFJBTkNBQVIycWpMYjM4YUhpaUtrcU1mbmNmeENDSm0yd0ZJKwpyM3NxOHZLbkZtdHFBb2RIeUdMSkMzZzd5ZExUR3ZhZVRJcHRiYkV3TDQ2R3MxazZDUlBQZ0hJbQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg"""
 VAPID_CLAIMS = {
-    "sub": "mailto:fax@messenger.com"
+    "sub": "mailto:fax@messenger.com",
+    "aud": "https://fax-messenger.onrender.com"
 }
 
 # Хранилище для активных звонков
@@ -46,6 +47,15 @@ GROUPS_FILE = 'groups_data.json'
 STICKERS_FILE = 'stickers_data.json'
 PUSH_SUBSCRIPTIONS_FILE = 'push_subscriptions.json'
 
+# Блокировки для потокобезопасной записи в файлы
+users_lock = Lock()
+friends_lock = Lock()
+messages_lock = Lock()
+drafts_lock = Lock()
+groups_lock = Lock()
+stickers_lock = Lock()
+push_subscriptions_lock = Lock()
+
 def load_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'r', encoding='utf-8') as f:
@@ -53,8 +63,9 @@ def load_users():
     return {}
 
 def save_users(data):
-    with open(USERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with users_lock:
+        with open(USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_friends():
     if os.path.exists(FRIENDS_FILE):
@@ -63,8 +74,9 @@ def load_friends():
     return {}
 
 def save_friends(data):
-    with open(FRIENDS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with friends_lock:
+        with open(FRIENDS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_messages():
     if os.path.exists(MESSAGES_FILE):
@@ -73,8 +85,9 @@ def load_messages():
     return {}
 
 def save_messages(data):
-    with open(MESSAGES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with messages_lock:
+        with open(MESSAGES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_drafts():
     if os.path.exists(DRAFTS_FILE):
@@ -83,8 +96,9 @@ def load_drafts():
     return {}
 
 def save_drafts(data):
-    with open(DRAFTS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with drafts_lock:
+        with open(DRAFTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_groups():
     if os.path.exists(GROUPS_FILE):
@@ -93,8 +107,9 @@ def load_groups():
     return {}
 
 def save_groups(data):
-    with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with groups_lock:
+        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_stickers():
     if os.path.exists(STICKERS_FILE):
@@ -103,8 +118,9 @@ def load_stickers():
     return {}
 
 def save_stickers(data):
-    with open(STICKERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with stickers_lock:
+        with open(STICKERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 def load_push_subscriptions():
     if os.path.exists(PUSH_SUBSCRIPTIONS_FILE):
@@ -113,8 +129,9 @@ def load_push_subscriptions():
     return {}
 
 def save_push_subscriptions(data):
-    with open(PUSH_SUBSCRIPTIONS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with push_subscriptions_lock:
+        with open(PUSH_SUBSCRIPTIONS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 users_db = load_users()
 friends_db = load_friends()
@@ -176,11 +193,15 @@ def send_push_notification(user_id, title, body, icon=None, data=None, call_type
                 vapid_claims=VAPID_CLAIMS
             )
             success = True
+            print(f"Push notification sent to {user_id}")
         except WebPushException as e:
-            if e.response and e.response.status_code in [404, 410]:
-                push_subscriptions[user_id].remove(subscription)
-                save_push_subscriptions(push_subscriptions)
-            print(f"Push failed: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f'WebPush failed for {user_id}: {e.response.status_code}, {e.response.text}')
+                if e.response.status_code in [404, 410]:
+                    push_subscriptions[user_id].remove(subscription)
+                    save_push_subscriptions(push_subscriptions)
+            else:
+                print(f'WebPush exception: {str(e)}')
     
     return success
 
@@ -222,6 +243,7 @@ def subscribe_push():
     if not exists:
         push_subscriptions[user_id].append(subscription)
         save_push_subscriptions(push_subscriptions)
+        print(f"New push subscription for user {user_id}")
     
     return jsonify({"success": True})
 
@@ -248,6 +270,11 @@ def handle_call_user(data):
     to_user_id = data.get('to_user_id')
     call_type = data.get('type', 'audio')
     call_id = data.get('call_id') or str(uuid.uuid4())[:8]
+    
+    # Проверка существования пользователей
+    if from_user_id not in users_db:
+        emit('call_error', {'error': 'Caller not found'}, to=request.sid)
+        return
     
     if to_user_id not in users_db:
         emit('call_error', {'error': 'User not found'}, to=request.sid)
@@ -306,7 +333,12 @@ def handle_answer_call(data):
     
     if answer:
         call['status'] = 'active'
+        # Присоединяем к комнате отвечающего
         join_room(call['room'])
+        
+        # Присоединяем инициатора звонка, если он онлайн
+        if call['from'] in active_users:
+            socketio.enter_room(active_users[call['from']]['sid'], call['room'])
         
         if call['to'] in active_users:
             socketio.emit('call_answered', {
@@ -416,10 +448,15 @@ def upload_avatar():
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
+    
+    # Безопасное имя файла
+    safe_filename = secure_filename(file.filename)
+    ext = safe_filename.rsplit('.', 1)[-1] if '.' in safe_filename else 'png'
+    
     user_id = request.form.get('user_id')
     if not user_id:
         return jsonify({"error": "No user_id"}), 400
-    ext = file.filename.split('.')[-1] if '.' in file.filename else 'png'
+    
     filename = f"{user_id}.{ext}"
     filepath = os.path.join('avatars', filename)
     file.save(filepath)
@@ -440,8 +477,12 @@ def upload_sticker():
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
+    
+    # Безопасное имя файла
+    safe_filename = secure_filename(file.filename)
+    ext = safe_filename.rsplit('.', 1)[-1] if '.' in safe_filename else 'png'
+    
     sticker_id = str(uuid.uuid4())[:8]
-    ext = file.filename.split('.')[-1] if '.' in file.filename else 'png'
     filename = f"{sticker_id}.{ext}"
     filepath = os.path.join('stickers', filename)
     file.save(filepath)
@@ -1157,7 +1198,9 @@ def handle_disconnect():
                 update_friends_list(uid)
             break
 
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ИСПРАВЛЕНЫ) ====================
 def update_friends_list(user_id):
+    """Обновляет список друзей для пользователя"""
     if user_id not in active_users:
         return
     
@@ -1173,9 +1216,10 @@ def update_friends_list(user_id):
             })
     
     sid = active_users[user_id]['sid']
-    emit('friends_list', friends_list, to=sid)
+    socketio.emit('friends_list', friends_list, to=sid)
 
 def update_groups_list(user_id):
+    """Обновляет список групп для пользователя"""
     if user_id not in active_users:
         return
     
@@ -1185,7 +1229,7 @@ def update_groups_list(user_id):
             groups_list.append(group)
     
     sid = active_users[user_id]['sid']
-    emit('groups_list', groups_list, to=sid)
+    socketio.emit('groups_list', groups_list, to=sid)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))

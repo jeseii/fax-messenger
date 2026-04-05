@@ -117,7 +117,7 @@
             align-items: center;
         }
 
-        .friends-header h3 {
+        .friends-header h2 {
             color: #2a9d8f;
             font-size: 1rem;
         }
@@ -1310,14 +1310,14 @@
     <div id="app-container" class="app-container" style="display:none">
         <div id="friends-panel" class="friends-panel">
             <div class="friends-header" id="friends-header">
-                <h3>📠 FAX</h3>
+                <h2>📠 FAX</h2>
                 <div>
-                    <button id="profile-btn" class="profile-btn">👤</button>
-                    <button id="create-group-btn" class="create-group-btn">👥</button>
+                    <button id="profile-btn" class="profile-btn" aria-label="Profile">👤</button>
+                    <button id="create-group-btn" class="create-group-btn" aria-label="Create group">👥</button>
                 </div>
             </div>
             <div class="current-user" id="current-user-info">
-                <img id="current-user-avatar" class="current-user-avatar" src="/static/default-avatar.png">
+                <img id="current-user-avatar" class="current-user-avatar" src="/static/default-avatar.png" alt="User avatar">
                 <span id="current-user-name"></span>
             </div>
             <div class="search-box">
@@ -1331,18 +1331,18 @@
 
         <div class="chat-panel">
             <div class="chat-header">
-                <button id="back-btn" class="back-btn">← Back</button>
+                <button id="back-btn" class="back-btn" aria-label="Back">← Back</button>
                 <div class="chat-header-left">
-                    <img id="chat-header-avatar" class="chat-header-avatar" style="display: none;">
+                    <img id="chat-header-avatar" class="chat-header-avatar" style="display: none;" alt="Chat avatar">
                     <h4 id="selected-chat-name">Select a chat</h4>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
                     <div class="call-buttons" id="call-buttons" style="display: none;">
-                        <button id="audio-call-btn" class="call-btn" title="Voice call">🎤</button>
-                        <button id="video-call-btn" class="call-btn video-call-btn" title="Video call">📹</button>
+                        <button id="audio-call-btn" class="call-btn" title="Voice call" aria-label="Voice call">🎤</button>
+                        <button id="video-call-btn" class="call-btn video-call-btn" title="Video call" aria-label="Video call">📹</button>
                     </div>
-                    <button id="sticker-btn" class="search-chat-btn" title="Stickers">😊</button>
-                    <button id="search-chat-btn" class="search-chat-btn">🔍</button>
+                    <button id="sticker-btn" class="search-chat-btn" title="Stickers" aria-label="Stickers">😊</button>
+                    <button id="search-chat-btn" class="search-chat-btn" aria-label="Search">🔍</button>
                 </div>
             </div>
 
@@ -1353,13 +1353,13 @@
 
             <div id="reply-bar" class="reply-bar">
                 <div class="reply-info" id="reply-info">Replying to...</div>
-                <button id="cancel-reply" class="cancel-reply">Cancel</button>
+                <button id="cancel-reply" class="cancel-reply" aria-label="Cancel reply">Cancel</button>
             </div>
 
             <div id="sticker-panel" class="sticker-panel">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span>Stickers</span>
-                    <button id="add-sticker-btn" class="add-sticker-btn">+</button>
+                    <button id="add-sticker-btn" class="add-sticker-btn" aria-label="Add sticker">+</button>
                 </div>
                 <div id="sticker-list" class="sticker-list"></div>
             </div>
@@ -1371,15 +1371,15 @@
             <div class="typing-indicator" id="typing-indicator" style="display: none;"></div>
 
             <div class="input-area">
-                <button id="attach-file" class="media-btn" title="Attach file">📎</button>
+                <button id="attach-file" class="media-btn" title="Attach file" aria-label="Attach file">📎</button>
                 <input type="text" id="message-input" placeholder="Message..." autocomplete="off">
-                <button id="action-btn" class="action-btn" title="Voice message">🎤</button>
+                <button id="action-btn" class="action-btn" title="Voice message" aria-label="Voice message">🎤</button>
             </div>
         </div>
     </div>
 
     <div id="profile-modal" class="profile-modal">
-        <img id="profile-avatar" class="profile-avatar" src="/static/default-avatar.png">
+        <img id="profile-avatar" class="profile-avatar" src="/static/default-avatar.png" alt="Profile avatar">
         <input type="text" id="profile-username" placeholder="Username">
         <input type="file" id="profile-avatar-input" accept="image/*" style="display: none;">
         <button id="update-profile-btn">Update Profile</button>
@@ -1398,9 +1398,9 @@
                 <span id="call-status">Calling...</span>
             </div>
             <div class="call-controls">
-                <button id="toggle-mic-btn" class="call-control-btn toggle-mic" title="Mute microphone">🎤</button>
-                <button id="end-call-btn" class="call-control-btn end-call" title="End call">📞</button>
-                <button id="toggle-video-btn" class="call-control-btn toggle-video" title="Toggle video">📹</button>
+                <button id="toggle-mic-btn" class="call-control-btn toggle-mic" title="Mute microphone" aria-label="Mute microphone">🎤</button>
+                <button id="end-call-btn" class="call-control-btn end-call" title="End call" aria-label="End call">📞</button>
+                <button id="toggle-video-btn" class="call-control-btn toggle-video" title="Toggle video" aria-label="Toggle video">📹</button>
             </div>
         </div>
     </div>
@@ -1416,7 +1416,7 @@
     <div id="voice-recording-panel" class="voice-recording-panel">
         <div class="mic-icon">🎤</div>
         <div class="recording-time" id="voice-recording-time">0:00</div>
-        <button id="stop-voice-recording" class="stop-btn">⏸️</button>
+        <button id="stop-voice-recording" class="stop-btn" aria-label="Stop recording">⏸️</button>
     </div>
 
     <div id="locked-panel" class="locked-panel">
@@ -1791,7 +1791,7 @@
             incomingCallModal.classList.add('show');
             document.getElementById('incoming-call-info').innerHTML = `
                 <div style="margin-bottom: 0.5rem;">
-                    <img src="${data.from_avatar || '/static/default-avatar.png'}" style="width: 60px; height: 60px; border-radius: 50%;">
+                    <img src="${data.from_avatar || '/static/default-avatar.png'}" style="width: 60px; height: 60px; border-radius: 50%;" alt="${data.from_username} avatar">
                 </div>
                 <div><strong>${escapeHtml(data.from_username)}</strong></div>
                 <div>is calling you (${data.type === 'video' ? '📹 Video' : '🎤 Voice'})</div>
@@ -1914,7 +1914,7 @@
                 return;
             }
             stickerList.innerHTML = stickers.map(s => `
-                <img src="${s.url}" class="sticker-item" data-url="${s.url}">
+                <img src="${s.url}" class="sticker-item" data-url="${s.url}" alt="Sticker">
             `).join('');
             document.querySelectorAll('.sticker-item').forEach(el => {
                 el.addEventListener('click', () => {
@@ -1976,7 +1976,7 @@
             groupMembersList.innerHTML = friends.map(f => `
                 <div class="member-checkbox-item">
                     <input type="checkbox" id="member_${f.id}" value="${f.id}" class="group-member-checkbox">
-                    <img src="${f.avatar || '/static/default-avatar.png'}" style="width: 32px; height: 32px; border-radius: 50%;">
+                    <img src="${f.avatar || '/static/default-avatar.png'}" style="width: 32px; height: 32px; border-radius: 50%;" alt="${f.username} avatar">
                     <span>${escapeHtml(f.username)}</span>
                 </div>
             `).join('');
@@ -2043,7 +2043,7 @@
             }
             friendsListDiv.innerHTML = allChats.map(chat => `
                 <div class="chat-item ${currentChat?.id === chat.id ? 'active' : ''}" onclick="selectChatById('${chat.id}', ${chat.is_group || false})">
-                    <img class="chat-avatar" src="${chat.avatar || (chat.is_group ? '/static/group-icon.png' : '/static/default-avatar.png')}" onerror="this.src='/static/default-avatar.png'">
+                    <img class="chat-avatar" src="${chat.avatar || (chat.is_group ? '/static/group-icon.png' : '/static/default-avatar.png')}" onerror="this.src='/static/default-avatar.png'" alt="${chat.name || chat.username} avatar">
                     <div class="chat-info">
                         <div class="chat-name">${escapeHtml(chat.name || chat.username)} ${chat.is_group ? '<span class="group-badge">👥</span>' : ''}</div>
                         <div class="online-status">
@@ -2224,7 +2224,7 @@
             const otherFriends = allChats.filter(c => c.id !== currentChat?.id);
             forwardFriendsList.innerHTML = otherFriends.map(chat => `
                 <div class="forward-friend-item" data-chat-id="${chat.id}" data-chat-name="${chat.name || chat.username}">
-                    <img class="chat-avatar" src="${chat.avatar || (chat.is_group ? '/static/group-icon.png' : '/static/default-avatar.png')}" style="width:32px;height:32px;">
+                    <img class="chat-avatar" src="${chat.avatar || (chat.is_group ? '/static/group-icon.png' : '/static/default-avatar.png')}" style="width:32px;height:32px;" alt="${chat.name || chat.username} avatar">
                     <div>${escapeHtml(chat.name || chat.username)} ${chat.is_group ? '👥' : ''}</div>
                 </div>
             `).join('');
@@ -3011,7 +3011,7 @@
 
         function renderMessageContent(msg) {
             if (msg.type === 'text') return escapeHtml(msg.content);
-            if (msg.type === 'sticker') return `<img src="${msg.content}" class="sticker">`;
+            if (msg.type === 'sticker') return `<img src="${msg.content}" class="sticker" alt="Sticker">`;
             if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
             if (msg.type === 'video') return `<video src="${msg.content}" playsinline autoplay loop muted></video>`;
             if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
@@ -3283,8 +3283,15 @@
 
         tryAutoLogin();
 
+        // Регистрация Service Worker для push уведомлений
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+            navigator.serviceWorker.register('/static/service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch(err => {
+                    console.error('Service Worker registration failed:', err);
+                });
         }
 
         // ==================== PUSH УВЕДОМЛЕНИЯ ====================
