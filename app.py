@@ -7,6 +7,14 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.utils import secure_filename
 
+# Импорты для push-уведомлений
+try:
+    from pywebpush import webpush, WebPushException
+    WEBPUSH_AVAILABLE = True
+except ImportError:
+    WEBPUSH_AVAILABLE = False
+    print("pywebpush not installed. Push notifications will use fallback mode.")
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'fax-secret-key'
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -18,9 +26,17 @@ os.makedirs('stickers', exist_ok=True)
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# VAPID ключи для push-уведомлений (сгенерируйте свои через pywebpush)
+# python -m pywebpush.vapid
+VAPID_PRIVATE_KEY = "YOUR_PRIVATE_KEY_HERE"
+VAPID_PUBLIC_KEY = "YOUR_PUBLIC_KEY_HERE"
+VAPID_CLAIMS = {
+    "sub": "mailto:fax@messenger.com"
+}
+
 # Хранилище для активных звонков
-active_calls = {}  # call_id -> {"from": user_id, "to": user_id, "status": "ringing/active", "room": room_name}
-user_sessions = {}  # user_id -> {"sid": sid, "room": room_name} для WebRTC
+active_calls = {}
+user_sessions = {}
 
 USERS_FILE = 'users_data.json'
 FRIENDS_FILE = 'friends_data.json'
@@ -110,6 +126,80 @@ push_subscriptions = load_push_subscriptions()
 active_users = {}
 unread_counts = {}
 
+def send_push_notification(user_id, title, body, icon=None, data=None, call_type=None):
+    """Отправляет push-уведомление с вибрацией и звуком"""
+    if user_id not in push_subscriptions:
+        return False
+    
+    # Если пользователь онлайн, не отправляем push (или отправляем как запасной вариант)
+    if user_id in active_users:
+        socketio.emit('push_notification', {
+            'title': title,
+            'body': body,
+            'icon': icon,
+            'data': data,
+            'call_type': call_type,
+            'vibrate': True
+        }, to=active_users[user_id]['sid'])
+        return True
+    
+    if not WEBPUSH_AVAILABLE:
+        return False
+    
+    success = False
+    for subscription in push_subscriptions.get(user_id, []):
+        try:
+            payload = {
+                "title": title,
+                "body": body,
+                "icon": icon or "/static/fax-icon-192.png",
+                "badge": "/static/fax-icon-96.png",
+                "vibrate": [500, 200, 500, 200, 500, 200, 1000] if call_type else [200, 100, 200, 100, 200, 100, 200],
+                "requireInteraction": True,
+                "tag": f"fax_{user_id}_{int(datetime.now().timestamp())}",
+                "renotify": True,
+                "data": data or {}
+            }
+            
+            if call_type:
+                payload["callType"] = call_type
+                payload["actions"] = [
+                    {"action": "answer", "title": "Answer"},
+                    {"action": "decline", "title": "Decline"},
+                    {"action": "open", "title": "Open App"}
+                ]
+            
+            webpush(
+                subscription_info=subscription,
+                data=json.dumps(payload),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims=VAPID_CLAIMS
+            )
+            success = True
+        except WebPushException as e:
+            if e.response and e.response.status_code in [404, 410]:
+                push_subscriptions[user_id].remove(subscription)
+                save_push_subscriptions(push_subscriptions)
+            print(f"Push failed: {e}")
+    
+    return success
+
+# ==================== МАРШРУТ ПРОФИЛЯ ====================
+@app.route('/api/update_profile', methods=['POST'])
+def update_profile():
+    data = request.json
+    user_id = data.get('user_id')
+    new_username = data.get('username')
+    
+    if user_id not in users_db:
+        return jsonify({"error": "User not found"}), 404
+    
+    if new_username:
+        users_db[user_id]['username'] = new_username
+        save_users(users_db)
+    
+    return jsonify({"success": True, "username": users_db[user_id]['username']})
+
 # ==================== PUSH УВЕДОМЛЕНИЯ ====================
 @app.route('/api/subscribe_push', methods=['POST'])
 def subscribe_push():
@@ -117,10 +207,12 @@ def subscribe_push():
     user_id = data.get('user_id')
     subscription = data.get('subscription')
     
+    if not user_id or not subscription:
+        return jsonify({"error": "Missing data"}), 400
+    
     if user_id not in push_subscriptions:
         push_subscriptions[user_id] = []
     
-    # Проверяем, нет ли уже такой подписки
     exists = False
     for sub in push_subscriptions[user_id]:
         if sub.get('endpoint') == subscription.get('endpoint'):
@@ -145,38 +237,24 @@ def unsubscribe_push():
     
     return jsonify({"success": True})
 
-def send_push_notification(user_id, title, body, icon=None, data=None):
-    """Отправляет push-уведомление пользователю"""
-    if user_id not in push_subscriptions:
-        return
-    
-    # Здесь должна быть интеграция с Web Push API
-    # Для production используйте библиотеку pywebpush
-    # Пока отправляем через SocketIO как fallback
-    if user_id in active_users:
-        socketio.emit('push_notification', {
-            'title': title,
-            'body': body,
-            'icon': icon,
-            'data': data
-        }, to=active_users[user_id]['sid'])
+@app.route('/api/vapid_public_key', methods=['GET'])
+def get_vapid_public_key():
+    return jsonify({"public_key": VAPID_PUBLIC_KEY})
 
 # ==================== ВИДЕО/ГОЛОСОВЫЕ ВЫЗОВЫ ====================
 @socketio.on('call_user')
 def handle_call_user(data):
-    """Исходящий звонок"""
     from_user_id = data.get('from_user_id')
     to_user_id = data.get('to_user_id')
-    call_type = data.get('type', 'audio')  # 'audio' или 'video'
+    call_type = data.get('type', 'audio')
+    call_id = data.get('call_id') or str(uuid.uuid4())[:8]
     
     if to_user_id not in users_db:
         emit('call_error', {'error': 'User not found'}, to=request.sid)
         return
     
-    call_id = str(uuid.uuid4())[:8]
     room_name = f"call_{call_id}"
     
-    # Сохраняем информацию о звонке
     active_calls[call_id] = {
         'from': from_user_id,
         'to': to_user_id,
@@ -186,7 +264,6 @@ def handle_call_user(data):
         'started_at': datetime.now().isoformat()
     }
     
-    # Отправляем звонок получателю
     if to_user_id in active_users:
         emit('incoming_call', {
             'call_id': call_id,
@@ -197,7 +274,6 @@ def handle_call_user(data):
             'room': room_name
         }, to=active_users[to_user_id]['sid'])
         
-        # Отправляем подтверждение звонящему
         emit('call_initiated', {
             'call_id': call_id,
             'to_user_id': to_user_id,
@@ -206,21 +282,20 @@ def handle_call_user(data):
             'room': room_name
         }, to=request.sid)
     else:
-        # Пользователь оффлайн - отправляем push уведомление
-        send_push_notification(to_user_id, 
-            f"Incoming {call_type} call from {users_db[from_user_id]['username']}",
-            "Tap to answer",
+        send_push_notification(
+            to_user_id,
+            f"Incoming {call_type} call",
+            f"{users_db[from_user_id]['username']} is calling you",
             users_db[from_user_id].get('avatar'),
-            {'call_id': call_id, 'type': call_type, 'from_user_id': from_user_id})
-        
+            {'call_id': call_id, 'type': call_type, 'from_user_id': from_user_id},
+            call_type=call_type
+        )
         emit('call_error', {'error': 'User is offline'}, to=request.sid)
-        del active_calls[call_id]
 
 @socketio.on('answer_call')
 def handle_answer_call(data):
-    """Ответ на звонок"""
     call_id = data.get('call_id')
-    answer = data.get('answer', True)  # True - ответить, False - отклонить
+    answer = data.get('answer', True)
     user_id = data.get('user_id')
     
     if call_id not in active_calls:
@@ -231,8 +306,6 @@ def handle_answer_call(data):
     
     if answer:
         call['status'] = 'active'
-        
-        # Присоединяем обоих пользователей к комнате WebRTC
         join_room(call['room'])
         
         if call['to'] in active_users:
@@ -247,7 +320,6 @@ def handle_answer_call(data):
                 'room': call['room']
             }, to=active_users[call['from']]['sid'])
     else:
-        # Отклоняем звонок
         if call['from'] in active_users:
             socketio.emit('call_rejected', {
                 'call_id': call_id,
@@ -258,22 +330,19 @@ def handle_answer_call(data):
 
 @socketio.on('end_call')
 def handle_end_call(data):
-    """Завершение звонка"""
     call_id = data.get('call_id')
     user_id = data.get('user_id')
     
     if call_id in active_calls:
         call = active_calls[call_id]
-        
-        # Уведомляем другого участника
         other_user = call['from'] if user_id == call['to'] else call['to']
+        
         if other_user in active_users:
             socketio.emit('call_ended', {
                 'call_id': call_id,
                 'by_user_id': user_id
             }, to=active_users[other_user]['sid'])
         
-        # Покидаем комнату
         if call['room']:
             leave_room(call['room'])
         
@@ -283,7 +352,6 @@ def handle_end_call(data):
 
 @socketio.on('webrtc_offer')
 def handle_webrtc_offer(data):
-    """WebRTC offer для установки соединения"""
     to_user_id = data.get('to_user_id')
     offer = data.get('offer')
     call_id = data.get('call_id')
@@ -297,7 +365,6 @@ def handle_webrtc_offer(data):
 
 @socketio.on('webrtc_answer')
 def handle_webrtc_answer(data):
-    """WebRTC answer"""
     to_user_id = data.get('to_user_id')
     answer = data.get('answer')
     call_id = data.get('call_id')
@@ -310,7 +377,6 @@ def handle_webrtc_answer(data):
 
 @socketio.on('webrtc_ice_candidate')
 def handle_webrtc_ice_candidate(data):
-    """ICE candidate для WebRTC"""
     to_user_id = data.get('to_user_id')
     candidate = data.get('candidate')
     call_id = data.get('call_id')
@@ -323,7 +389,6 @@ def handle_webrtc_ice_candidate(data):
 
 @socketio.on('toggle_video')
 def handle_toggle_video(data):
-    """Включить/выключить видео во время звонка"""
     call_id = data.get('call_id')
     enabled = data.get('enabled', True)
     user_id = data.get('user_id')
@@ -338,24 +403,7 @@ def handle_toggle_video(data):
                 'enabled': enabled
             }, to=active_users[other_user]['sid'])
 
-@socketio.on('toggle_audio')
-def handle_toggle_audio(data):
-    """Включить/выключить микрофон во время звонка"""
-    call_id = data.get('call_id')
-    enabled = data.get('enabled', True)
-    user_id = data.get('user_id')
-    
-    if call_id in active_calls:
-        call = active_calls[call_id]
-        other_user = call['from'] if user_id == call['to'] else call['to']
-        
-        if other_user in active_users:
-            socketio.emit('audio_toggled', {
-                'user_id': user_id,
-                'enabled': enabled
-            }, to=active_users[other_user]['sid'])
-
-# ==================== ОСТАЛЬНЫЕ МАРШРУТЫ (ВАШ СУЩЕСТВУЮЩИЙ КОД) ====================
+# ==================== ОСТАЛЬНЫЕ МАРШРУТЫ ====================
 
 @app.route('/api/test', methods=['GET'])
 def test_api():
@@ -600,7 +648,6 @@ def add_friend():
                 "friend_username": users_db[user_id]['username']
             }, to=active_users[friend_id]['sid'])
         
-        # Отправляем push уведомление о новом друге
         send_push_notification(friend_id, 
             f"New friend! {users_db[user_id]['username']} added you",
             "Start chatting now",
@@ -677,7 +724,7 @@ def upload_file():
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-# ==================== SOCKETIO СОБЫТИЯ (ВАШ СУЩЕСТВУЮЩИЙ КОД) ====================
+# ==================== SOCKETIO СОБЫТИЯ ====================
 @socketio.on('connect')
 def handle_connect():
     print(f"Client connected: {request.sid}")
@@ -1059,7 +1106,6 @@ def handle_private_message(data):
         "message": message_data
     }, to=request.sid)
     
-    # Отправляем push уведомление о новом сообщении
     if not is_group and to_chat_id not in active_users:
         send_push_notification(to_chat_id,
             f"New message from {from_username}",

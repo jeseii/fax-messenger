@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
     <title>FAX Messenger</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/fax-icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FAX">
     <style>
         * {
             margin: 0;
@@ -117,6 +122,18 @@
             font-size: 1rem;
         }
 
+        .profile-btn {
+            background: rgba(42, 157, 143, 0.5);
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 1rem;
+            cursor: pointer;
+            color: white;
+            margin-right: 0.5rem;
+        }
+
         .create-group-btn {
             background: rgba(42, 157, 143, 0.5);
             border: none;
@@ -133,6 +150,17 @@
             color: #888;
             margin-top: 0.3rem;
             padding: 0 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .current-user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
         }
 
         .search-box {
@@ -249,16 +277,6 @@
             font-weight: bold;
         }
 
-        .remove-friend-small {
-            background: none;
-            border: none;
-            color: #e74c3c;
-            cursor: pointer;
-            font-size: 0.8rem;
-            padding: 0.2rem 0.4rem;
-            border-radius: 1rem;
-        }
-
         .group-badge {
             font-size: 0.7rem;
             opacity: 0.6;
@@ -289,6 +307,7 @@
             display: flex;
             align-items: center;
             gap: 0.8rem;
+            flex: 1;
         }
 
         .chat-header-avatar {
@@ -296,6 +315,7 @@
             height: 40px;
             border-radius: 50%;
             object-fit: cover;
+            cursor: pointer;
         }
 
         .chat-header h4 {
@@ -354,16 +374,6 @@
             padding: 0.3rem 0.8rem;
             border-radius: 1rem;
             cursor: pointer;
-        }
-
-        .remove-friend-btn {
-            background: #e74c3c;
-            border: none;
-            padding: 0.3rem 0.8rem;
-            border-radius: 1rem;
-            color: white;
-            cursor: pointer;
-            font-size: 0.7rem;
         }
 
         .messages-area {
@@ -878,7 +888,6 @@
             object-fit: cover;
         }
 
-        /* Call Modal Styles */
         .call-modal {
             position: fixed;
             top: 0;
@@ -1035,6 +1044,61 @@
         .reject-call {
             background: #e74c3c;
             color: white;
+        }
+
+        .profile-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(26, 31, 31, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            border-radius: 2rem;
+            text-align: center;
+            z-index: 350;
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            min-width: 280px;
+            max-width: 90%;
+            border: 1px solid rgba(42, 157, 143, 0.3);
+        }
+
+        .profile-modal.show {
+            display: flex;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto;
+            cursor: pointer;
+            border: 2px solid #2a9d8f;
+        }
+
+        .profile-modal input {
+            background: rgba(30, 42, 42, 0.8);
+            border: 1px solid rgba(42, 157, 143, 0.3);
+            border-radius: 2rem;
+            padding: 0.6rem 1rem;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .profile-modal button {
+            background: #2a9d8f;
+            border: none;
+            border-radius: 2rem;
+            padding: 0.6rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        .close-profile {
+            background: rgba(231, 76, 60, 0.7);
         }
 
         .empty-state {
@@ -1211,6 +1275,14 @@
                 height: 80px;
                 bottom: 80px;
             }
+            .call-buttons {
+                gap: 0.3rem;
+            }
+            .call-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 0.9rem;
+            }
         }
 
         @media (min-width: 601px) {
@@ -1239,9 +1311,15 @@
         <div id="friends-panel" class="friends-panel">
             <div class="friends-header" id="friends-header">
                 <h3>📠 FAX</h3>
-                <button id="create-group-btn" class="create-group-btn">👥</button>
+                <div>
+                    <button id="profile-btn" class="profile-btn">👤</button>
+                    <button id="create-group-btn" class="create-group-btn">👥</button>
+                </div>
             </div>
-            <div class="current-user" id="current-user-name"></div>
+            <div class="current-user" id="current-user-info">
+                <img id="current-user-avatar" class="current-user-avatar" src="/static/default-avatar.png">
+                <span id="current-user-name"></span>
+            </div>
             <div class="search-box">
                 <input type="text" id="search-input" placeholder="🔍 Search users...">
                 <div id="search-results" class="search-results" style="display: none;"></div>
@@ -1265,7 +1343,6 @@
                     </div>
                     <button id="sticker-btn" class="search-chat-btn" title="Stickers">😊</button>
                     <button id="search-chat-btn" class="search-chat-btn">🔍</button>
-                    <button id="remove-friend-btn" class="remove-friend-btn" style="display: none;">Remove</button>
                 </div>
             </div>
 
@@ -1301,7 +1378,14 @@
         </div>
     </div>
 
-    <!-- Call Modal -->
+    <div id="profile-modal" class="profile-modal">
+        <img id="profile-avatar" class="profile-avatar" src="/static/default-avatar.png">
+        <input type="text" id="profile-username" placeholder="Username">
+        <input type="file" id="profile-avatar-input" accept="image/*" style="display: none;">
+        <button id="update-profile-btn">Update Profile</button>
+        <button id="close-profile-btn" class="close-profile">Close</button>
+    </div>
+
     <div id="call-modal" class="call-modal">
         <div class="call-container">
             <div class="remote-video">
@@ -1321,7 +1405,6 @@
         </div>
     </div>
 
-    <!-- Incoming Call Modal -->
     <div id="incoming-call-modal" class="incoming-call-modal">
         <div id="incoming-call-info">Incoming call...</div>
         <div class="incoming-call-buttons">
@@ -1397,7 +1480,6 @@
         let forwardMessage = null;
         let replyToMessage = null;
 
-        // Call variables
         let localStream = null;
         let peerConnection = null;
         let currentCallId = null;
@@ -1405,7 +1487,6 @@
         let isCallActive = false;
         let pendingCallId = null;
 
-        // WebRTC Configuration
         const configuration = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -1423,11 +1504,11 @@
         const actionBtn = document.getElementById('action-btn');
         const selectedChatName = document.getElementById('selected-chat-name');
         const currentUserNameSpan = document.getElementById('current-user-name');
+        const currentUserAvatar = document.getElementById('current-user-avatar');
         const typingIndicator = document.getElementById('typing-indicator');
         const backBtn = document.getElementById('back-btn');
         const searchInput = document.getElementById('search-input');
         const searchResults = document.getElementById('search-results');
-        const removeFriendBtn = document.getElementById('remove-friend-btn');
         const mobileOverlay = document.getElementById('mobile-overlay');
         
         const voiceRecordingPanel = document.getElementById('voice-recording-panel');
@@ -1472,8 +1553,65 @@
         const acceptCallBtn = document.getElementById('accept-call');
         const rejectCallBtn = document.getElementById('reject-call');
         const callStatusSpan = document.getElementById('call-status');
+        
+        const profileModal = document.getElementById('profile-modal');
+        const profileBtn = document.getElementById('profile-btn');
+        const profileAvatar = document.getElementById('profile-avatar');
+        const profileUsername = document.getElementById('profile-username');
+        const profileAvatarInput = document.getElementById('profile-avatar-input');
+        const updateProfileBtn = document.getElementById('update-profile-btn');
+        const closeProfileBtn = document.getElementById('close-profile-btn');
 
-        // ==================== CALL FUNCTIONS ====================
+        async function updateProfile() {
+            const newUsername = profileUsername.value.trim();
+            if (!newUsername) {
+                alert('Username cannot be empty');
+                return;
+            }
+            
+            const res = await fetch('/api/update_profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    username: newUsername
+                })
+            });
+            
+            if (res.ok) {
+                currentUser.username = newUsername;
+                currentUserNameSpan.innerText = newUsername;
+                alert('Profile updated!');
+            }
+        }
+
+        async function uploadProfileAvatar(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('user_id', currentUser.id);
+            const res = await fetch('/upload_avatar', { method: 'POST', body: formData });
+            if (res.ok) {
+                const data = await res.json();
+                currentUser.avatar = data.url;
+                currentUserAvatar.src = data.url;
+                profileAvatar.src = data.url;
+                alert('Avatar updated!');
+            }
+        }
+
+        profileBtn.onclick = () => {
+            profileUsername.value = currentUser.username;
+            profileAvatar.src = currentUser.avatar || '/static/default-avatar.png';
+            profileModal.classList.add('show');
+        };
+        
+        closeProfileBtn.onclick = () => profileModal.classList.remove('show');
+        profileAvatar.onclick = () => profileAvatarInput.click();
+        profileAvatarInput.onchange = (e) => {
+            if (e.target.files[0]) uploadProfileAvatar(e.target.files[0]);
+        };
+        updateProfileBtn.onclick = updateProfile;
+
         async function startCall(userId, type) {
             if (!currentUser || !userId) return;
             
@@ -1486,7 +1624,12 @@
                     video: type === 'video'
                 });
                 
-                localVideo.srcObject = localStream;
+                if (type === 'video') {
+                    localVideo.srcObject = localStream;
+                    toggleVideoBtn.style.display = 'flex';
+                } else {
+                    toggleVideoBtn.style.display = 'none';
+                }
                 
                 socket.emit('call_user', {
                     from_user_id: currentUser.id,
@@ -1497,8 +1640,6 @@
                 
                 callModal.classList.add('show');
                 callStatusSpan.innerText = `Calling ${currentChat?.username || 'user'}...`;
-                
-                // Setup peer connection
                 setupPeerConnection(type);
                 
             } catch (err) {
@@ -1511,19 +1652,16 @@
         function setupPeerConnection(isVideo) {
             peerConnection = new RTCPeerConnection(configuration);
             
-            // Add local tracks
             if (localStream) {
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
             }
             
-            // Handle remote tracks
             peerConnection.ontrack = (event) => {
                 remoteVideo.srcObject = event.streams[0];
             };
             
-            // Handle ICE candidates
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit('webrtc_ice_candidate', {
@@ -1602,6 +1740,7 @@
             
             localVideo.srcObject = null;
             remoteVideo.srcObject = null;
+            toggleVideoBtn.style.display = 'flex';
             
             if (currentCallId) {
                 socket.emit('end_call', {
@@ -1645,11 +1784,9 @@
             }
         }
 
-        // ==================== SOCKET CALL HANDLERS ====================
         socket.on('incoming_call', (data) => {
             pendingCallId = data.call_id;
             currentCallId = data.call_id;
-            currentChat = { id: data.from_user_id, username: data.from_username, avatar: data.from_avatar };
             
             incomingCallModal.classList.add('show');
             document.getElementById('incoming-call-info').innerHTML = `
@@ -1664,21 +1801,25 @@
         acceptCallBtn.onclick = async () => {
             incomingCallModal.classList.remove('show');
             
-            const callData = { call_id: pendingCallId, answer: true, user_id: currentUser.id };
-            socket.emit('answer_call', callData);
+            const isVideoCall = confirm('Accept with video?');
             
             try {
-                // Need to know call type - fetch from active_calls via socket
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
-                    video: true // Will be determined by call type
+                    video: isVideoCall
                 });
                 
-                localVideo.srcObject = localStream;
+                if (isVideoCall) {
+                    localVideo.srcObject = localStream;
+                    toggleVideoBtn.style.display = 'flex';
+                } else {
+                    toggleVideoBtn.style.display = 'none';
+                }
+                
+                socket.emit('answer_call', { call_id: pendingCallId, answer: true, user_id: currentUser.id });
                 callModal.classList.add('show');
                 callStatusSpan.innerText = 'Connected';
                 
-                // Answer will be handled via socket event
             } catch (err) {
                 console.error('Failed to accept call:', err);
                 endCall();
@@ -1734,17 +1875,15 @@
         });
 
         socket.on('video_toggled', (data) => {
-            if (data.user_id !== currentUser?.id) {
-                // Remote user toggled video - UI update not needed for remote
-            }
+            if (data.user_id !== currentUser?.id) {}
         });
 
-        // ==================== EXISTING FUNCTIONS ====================
         function saveUserToStorage(user) {
             if (!user) return;
             localStorage.setItem('fax_user', JSON.stringify({
                 id: user.id,
                 username: user.username,
+                avatar: user.avatar,
                 savedAt: Date.now()
             }));
         }
@@ -1892,21 +2031,6 @@
             selectedGroupMembers.clear();
         };
 
-        async function uploadAvatar(file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('user_id', currentUser.id);
-            const res = await fetch('/upload_avatar', { method: 'POST', body: formData });
-            if (res.ok) {
-                const data = await res.json();
-                if (currentChat && currentChat.id === currentUser.id) {
-                    chatHeaderAvatar.src = data.url;
-                    chatHeaderAvatar.style.display = 'block';
-                }
-                loadChats();
-            }
-        }
-
         function loadChats() {
             allChats = [...friendsList, ...groupsList];
             renderChats();
@@ -1947,8 +2071,9 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    currentUser = { id: data.user_id, username: savedUser.username };
+                    currentUser = { id: data.user_id, username: savedUser.username, avatar: savedUser.avatar };
                     currentUserNameSpan.innerText = savedUser.username;
+                    if (savedUser.avatar) currentUserAvatar.src = savedUser.avatar;
                     saveUserToStorage(currentUser);
                     socket.emit('register', { user_id: currentUser.id, username: currentUser.username });
                     loginScreen.style.display = 'none';
@@ -2428,6 +2553,7 @@
                 <div class="context-menu-item" data-action="forward">↪️ Forward</div>
                 ${message.from_id === currentUser?.id && message.type === 'text' ? '<div class="context-menu-item" data-action="edit">✏️ Edit</div>' : ''}
                 ${message.from_id === currentUser?.id ? '<div class="context-menu-item" data-action="delete">🗑️ Delete</div>' : ''}
+                ${message.from_id !== currentUser?.id ? '<div class="context-menu-item" data-action="remove-friend">🚫 Remove Friend</div>' : ''}
             `;
             document.body.appendChild(contextMenu);
             
@@ -2443,11 +2569,35 @@
                 deleteMessage(message.id);
                 contextMenu.remove();
             });
+            contextMenu.querySelector('[data-action="remove-friend"]')?.addEventListener('click', () => {
+                if (currentChat && !currentChat.is_group) {
+                    removeFriend(currentChat.id);
+                }
+                contextMenu.remove();
+            });
             
             setTimeout(() => {
                 document.addEventListener('click', () => contextMenu.remove(), { once: true });
             }, 10);
         }
+
+        window.removeFriend = async (friendId) => {
+            if (confirm('Remove this friend?')) {
+                await fetch('/api/remove_friend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
+                });
+                if (currentChat?.id === friendId && !currentChat.is_group) {
+                    currentChat = null;
+                    selectedChatName.innerText = 'Select a chat';
+                    callButtons.style.display = 'none';
+                    messageInput.disabled = true;
+                    messagesArea.innerHTML = '<div class="empty-state">Choose a chat to start messaging</div>';
+                }
+                loadFriends();
+            }
+        };
 
         messagesArea.addEventListener('touchstart', onTouchStart);
         messagesArea.addEventListener('touchmove', onTouchMove);
@@ -2568,11 +2718,8 @@
             
             currentChat = chat;
             selectedChatName.innerText = chat.name || chat.username;
-            removeFriendBtn.style.display = chat.is_group ? 'none' : 'block';
-            removeFriendBtn.innerText = chat.is_group ? '' : 'Remove';
             
-            // Show/hide call buttons (only for personal chats, not groups)
-            if (!chat.is_group && !chat.is_group === false) {
+            if (!chat.is_group) {
                 callButtons.style.display = 'flex';
             } else {
                 callButtons.style.display = 'none';
@@ -2609,30 +2756,6 @@
             if (window.innerWidth <= 600) closeFriendsPanel();
         }
 
-        window.removeFriend = async (friendId) => {
-            if (confirm('Remove this friend?')) {
-                await fetch('/api/remove_friend', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
-                });
-                if (currentChat?.id === friendId && !currentChat.is_group) {
-                    currentChat = null;
-                    selectedChatName.innerText = 'Select a chat';
-                    removeFriendBtn.style.display = 'none';
-                    callButtons.style.display = 'none';
-                    messageInput.disabled = true;
-                    messagesArea.innerHTML = '<div class="empty-state">Choose a chat to start messaging</div>';
-                }
-                loadFriends();
-            }
-        };
-
-        removeFriendBtn.onclick = () => {
-            if (currentChat && !currentChat.is_group) removeFriend(currentChat.id);
-        };
-
-        // Call button handlers
         audioCallBtn.onclick = () => {
             if (currentChat && !currentChat.is_group) {
                 startCall(currentChat.id, 'audio');
@@ -2648,6 +2771,27 @@
         toggleMicBtn.onclick = toggleMicrophone;
         toggleVideoBtn.onclick = toggleVideo;
         endCallBtn.onclick = endCall;
+
+        const chatHeaderAvatarEl = document.getElementById('chat-header-avatar');
+        let avatarPressTimer;
+        
+        chatHeaderAvatarEl.addEventListener('touchstart', () => {
+            avatarPressTimer = setTimeout(() => {
+                if (currentChat && !currentChat.is_group) {
+                    if (confirm(`Remove ${currentChat.username} from friends?`)) {
+                        removeFriend(currentChat.id);
+                    }
+                }
+            }, 500);
+        });
+        
+        chatHeaderAvatarEl.addEventListener('touchend', () => {
+            clearTimeout(avatarPressTimer);
+        });
+        
+        chatHeaderAvatarEl.addEventListener('touchcancel', () => {
+            clearTimeout(avatarPressTimer);
+        });
 
         function formatTime(timestamp) {
             const date = new Date(timestamp);
@@ -2722,7 +2866,6 @@
             
             document.querySelectorAll('.message').forEach(msgEl => {
                 const messageId = msgEl.dataset.messageId;
-                const messageType = msgEl.dataset.messageType;
                 const messageFrom = msgEl.dataset.messageFrom;
                 
                 const actionArea = msgEl.querySelector('.action-area');
@@ -3108,7 +3251,6 @@
             updateActionButton();
             if (currentChat) {
                 saveDraft();
-                // Send typing indicator
                 socket.emit('typing_private', {
                     from_user_id: currentUser.id,
                     to_chat_id: currentChat.id,
@@ -3142,8 +3284,108 @@
         tryAutoLogin();
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
+            navigator.serviceWorker.register('/service-worker.js').catch(console.error);
         }
+
+        // ==================== PUSH УВЕДОМЛЕНИЯ ====================
+        async function registerPushNotifications() {
+            if (!('serviceWorker' in navigator)) {
+                console.log('Service Worker not supported');
+                return;
+            }
+            
+            if (!('PushManager' in window)) {
+                console.log('Push notifications not supported');
+                return;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                console.log('Service Worker ready for push');
+                
+                const permission = await Notification.requestPermission();
+                
+                if (permission === 'granted') {
+                    const checkUserInterval = setInterval(async () => {
+                        if (currentUser && currentUser.id) {
+                            clearInterval(checkUserInterval);
+                            
+                            try {
+                                const vapidRes = await fetch('/api/vapid_public_key');
+                                const vapidData = await vapidRes.json();
+                                
+                                if (vapidData.public_key && vapidData.public_key !== 'YOUR_PUBLIC_KEY_HERE') {
+                                    const applicationServerKey = urlBase64ToUint8Array(vapidData.public_key);
+                                    
+                                    const subscription = await registration.pushManager.subscribe({
+                                        userVisibleOnly: true,
+                                        applicationServerKey: applicationServerKey
+                                    });
+                                    
+                                    await fetch('/api/subscribe_push', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            user_id: currentUser.id,
+                                            subscription: subscription
+                                        })
+                                    });
+                                    
+                                    console.log('Push notifications enabled');
+                                    
+                                    registration.showNotification('FAX Messenger', {
+                                        body: 'Push notifications enabled!',
+                                        icon: '/static/fax-icon-192.png',
+                                        vibrate: [200, 100, 200]
+                                    });
+                                } else {
+                                    console.log('VAPID key not configured');
+                                }
+                            } catch (err) {
+                                console.error('Push subscription error:', err);
+                            }
+                        }
+                    }, 500);
+                }
+            } catch (err) {
+                console.error('Service Worker not ready:', err);
+            }
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                const data = event.data;
+                if (data.type === 'ANSWER_CALL' && pendingCallId) {
+                    acceptCallBtn?.click();
+                } else if (data.type === 'DECLINE_CALL' && pendingCallId) {
+                    rejectCallBtn?.click();
+                } else if (data.type === 'OPEN_CHAT' && data.chatId) {
+                    const chat = allChats?.find(c => c.id === data.chatId);
+                    if (chat) selectChat(chat);
+                }
+            });
+        }
+
+        window.addEventListener('load', () => {
+            setTimeout(registerPushNotifications, 3000);
+        });
+
+        setInterval(() => {
+            if (socket && socket.connected) {
+                socket.emit('ping');
+            }
+        }, 25000);
     </script>
 </body>
 </html>
