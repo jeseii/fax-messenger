@@ -1060,4 +1060,690 @@
 
         async function sendRecordedMedia() {
             if (recordedBlob && !isSending && currentChatUser) {
-                is
+                isSending = true;
+                const file = new File([recordedBlob], currentMode === 'voice' ? `voice_${Date.now()}.webm` : `video_${Date.now()}.webm`, 
+                    { type: currentMode === 'voice' ? 'audio/webm' : 'video/webm' });
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    socket.emit('private_message', {
+                        from_user_id: currentUser.id,
+                        to_user_id: currentChatUser.id,
+                        message: { type: currentMode === 'voice' ? 'voice' : 'video', content: data.url, name: data.name }
+                    });
+                }
+                isSending = false;
+                recordedBlob = null;
+            }
+        }
+
+        function cancelRecording() {
+            recordedBlob = null;
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+            if (recordingInterval) clearInterval(recordingInterval);
+            isRecording = false;
+            isRecordingLocked = false;
+            voiceRecordingPanel.classList.remove('show');
+            videoPreview.classList.remove('show');
+            lockedPanel.classList.remove('show');
+        }
+
+        function lockRecording() {
+            if (!isRecording) return;
+            isRecordingLocked = true;
+            
+            if (currentMode === 'voice') {
+                stopVoiceRecording();
+                lockedPanel.classList.add('show');
+                voiceRecordingPanel.classList.add('show');
+            } else {
+                stopVideoRecording();
+                lockedPanel.classList.add('show');
+            }
+            actionBtn.classList.remove('recording');
+        }
+
+        sendLockedBtn.onclick = () => {
+            sendRecordedMedia();
+            lockedPanel.classList.remove('show');
+            isRecordingLocked = false;
+            if (currentMode === 'voice') {
+                voiceRecordingPanel.classList.remove('show');
+            } else {
+                videoPreview.classList.remove('show');
+            }
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+        };
+
+        cancelLockedBtn.onclick = () => {
+            cancelRecording();
+            lockedPanel.classList.remove('show');
+            isRecordingLocked = false;
+        };
+
+        stopVoiceBtn.onclick = () => {
+            if (isPaused) {
+                resumeVoiceRecording();
+            } else {
+                pauseVoiceRecording();
+            }
+        };
+
+        function onActionButtonStart(e) {
+            if (!currentChatUser) return;
+            const hasText = messageInput.value.trim().length > 0;
+            if (hasText) return;
+            
+            e.preventDefault();
+            isLongPress = false;
+            
+            if (e.touches) {
+                touchStartY = e.touches[0].clientY;
+            }
+            
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                if (currentMode === 'voice') {
+                    startVoiceRecording();
+                } else {
+                    startVideoRecording();
+                }
+            }, 300);
+        }
+
+        function onActionButtonMove(e) {
+            if (!isRecording || !e.touches) return;
+            const deltaY = touchStartY - e.touches[0].clientY;
+            if (deltaY > 50 && !isRecordingLocked) {
+                lockRecording();
+            }
+        }
+
+        function onActionButtonEnd(e) {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (!currentChatUser) return;
+            
+            const hasText = messageInput.value.trim().length > 0;
+            if (hasText) {
+                sendMessage();
+            } else if (isLongPress && isRecording && !isRecordingLocked) {
+                if (currentMode === 'voice') {
+                    stopVoiceRecording();
+                } else {
+                    stopVideoRecording();
+                    videoPreview.classList.remove('show');
+                }
+                sendRecordedMedia();
+            } else if (!isLongPress) {
+                switchMode();
+            }
+            isLongPress = false;
+            isRecording = false;
+        }
+
+        function onActionButtonCancel() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (isRecording && !isRecordingLocked) {
+                cancelRecording();
+            }
+            isLongPress = false;
+        }
+
+        actionBtn.addEventListener('mousedown', onActionButtonStart);
+        actionBtn.addEventListener('mouseup', onActionButtonEnd);
+        actionBtn.addEventListener('touchstart', onActionButtonStart);
+        actionBtn.addEventListener('touchmove', onActionButtonMove);
+        actionBtn.addEventListener('touchend', onActionButtonEnd);
+        actionBtn.addEventListener('touchcancel', onActionButtonCancel);
+        
+        window.addEventListener('mouseup', function(e) {
+            if (e.target !== actionBtn && isRecording && !isRecordingLocked) {
+                cancelRecording();
+            }
+        });
+
+        document.getElementById('join-btn').onclick = async () => {
+            const username = document.getElementById('username-input').value.trim();
+            if (!username) {
+                alert('Enter your name');
+                return;
+            }
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                currentUser = { id: data.user_id, username };
+                currentUserNameSpan.innerText = username;
+                saveUserToStorage(currentUser);
+                socket.emit('register', { user_id: currentUser.id, username });
+                loginScreen.style.display = 'none';
+                appContainer.style.display = 'flex';
+                loadFriends();
+            }
+        };
+
+        function loadFriends() {
+            socket.emit('get_friends');
+        }
+
+        function selectChat(friend) {
+            currentChatUser = friend;
+            selectedChatName.innerText = friend.username;
+            removeFriendBtn.style.display = 'block';
+            updateActionButton();
+            
+            socket.emit('mark_as_read', {
+                user_id: currentUser.id,
+                other_user_id: friend.id
+            });
+            
+            socket.emit('get_messages', {
+                user_id: currentUser.id,
+                other_user_id: friend.id
+            });
+            
+            if (window.innerWidth <= 600) closeFriendsPanel();
+        }
+
+        function renderFriends() {
+            if (friendsList.length === 0) {
+                friendsListDiv.innerHTML = '<div class="empty-state">No friends yet. Search and add!</div>';
+                return;
+            }
+            friendsListDiv.innerHTML = friendsList.map(f => `
+                <div class="friend-item ${currentChatUser?.id === f.id ? 'active' : ''}" onclick="selectFriendAndClose('${f.id}')">
+                    <div>
+                        <div class="friend-name">${escapeHtml(f.username)}</div>
+                        <div class="online-status">
+                            <span class="online-dot ${f.online ? 'online' : 'offline'}"></span>
+                            ${f.online ? 'Online' : 'Offline'}
+                        </div>
+                    </div>
+                    ${f.unread > 0 ? `<div class="unread-badge">${f.unread}</div>` : ''}
+                    <button class="remove-friend-small" onclick="event.stopPropagation(); removeFriend('${f.id}')">✕</button>
+                </div>
+            `).join('');
+        }
+
+        window.selectFriendAndClose = function(friendId) {
+            const f = friendsList.find(x => x.id === friendId);
+            if (f) selectChat(f);
+        };
+
+        window.removeFriend = async (friendId) => {
+            if (confirm('Remove this friend?')) {
+                await fetch('/api/remove_friend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
+                });
+                if (currentChatUser?.id === friendId) {
+                    currentChatUser = null;
+                    selectedChatName.innerText = 'Select a chat';
+                    removeFriendBtn.style.display = 'none';
+                    messageInput.disabled = true;
+                    messagesArea.innerHTML = '<div class="empty-state">Choose a friend to start messaging</div>';
+                }
+                loadFriends();
+            }
+        };
+
+        removeFriendBtn.onclick = () => {
+            if (currentChatUser) removeFriend(currentChatUser.id);
+        };
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        function getStatusIcon(status) {
+            if (status === 'sent') return '✓';
+            if (status === 'delivered') return '✓✓';
+            if (status === 'read') return '✓✓';
+            return '';
+        }
+
+        function zoomVideo(videoElement) {
+            if (videoElement.classList.contains('zoomed')) {
+                videoElement.classList.remove('zoomed');
+                videoElement.style.position = '';
+                videoElement.style.top = '';
+                videoElement.style.left = '';
+                videoElement.style.width = '';
+                videoElement.style.height = '';
+                videoElement.style.zIndex = '';
+                videoElement.controls = false;
+                videoElement.pause();
+            } else {
+                document.querySelectorAll('.message video').forEach(v => {
+                    v.classList.remove('zoomed');
+                    v.style.position = '';
+                    v.style.top = '';
+                    v.style.left = '';
+                    v.style.width = '';
+                    v.style.height = '';
+                    v.style.zIndex = '';
+                    v.controls = false;
+                });
+                
+                videoElement.classList.add('zoomed');
+                videoElement.style.position = 'relative';
+                videoElement.style.top = '0';
+                videoElement.style.left = '0';
+                videoElement.style.width = '250px';
+                videoElement.style.height = '250px';
+                videoElement.style.zIndex = '10';
+                videoElement.controls = true;
+                videoElement.play();
+                
+                videoElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                videoElement.addEventListener('ended', () => {
+                    videoElement.classList.remove('zoomed');
+                    videoElement.style.position = '';
+                    videoElement.style.top = '';
+                    videoElement.style.left = '';
+                    videoElement.style.width = '';
+                    videoElement.style.height = '';
+                    videoElement.style.zIndex = '';
+                    videoElement.controls = false;
+                }, { once: true });
+            }
+        }
+
+        function renderMessages() {
+            if (!currentMessages.length) {
+                messagesArea.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
+                return;
+            }
+            messagesArea.innerHTML = currentMessages.map(msg => `
+                <div class="message ${msg.from_id === currentUser?.id ? 'own' : 'other'}" data-message-id="${msg.id}" data-message-type="${msg.type}" data-message-from="${msg.from_id}">
+                    ${msg.from_id !== currentUser?.id ? `<div class="name">${escapeHtml(msg.from)}</div>` : ''}
+                    <div>${renderMessageContent(msg)}</div>
+                    ${msg.edited ? `<span class="edited-badge">edited</span>` : ''}
+                    <div class="reactions">
+                        ${renderReactions(msg)}
+                    </div>
+                    <span class="action-area">⚙️</span>
+                    <div class="time">
+                        ${formatTime(msg.timestamp)}
+                        ${msg.from_id === currentUser?.id ? `<span class="status">${getStatusIcon(msg.status)}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            document.querySelectorAll('.message').forEach(msgEl => {
+                const messageId = msgEl.dataset.messageId;
+                const messageType = msgEl.dataset.messageType;
+                const messageFrom = msgEl.dataset.messageFrom;
+                
+                const actionArea = msgEl.querySelector('.action-area');
+                actionArea.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const rect = msgEl.getBoundingClientRect();
+                    if (messageFrom === currentUser?.id) {
+                        showContextMenu(rect.left - 10, rect.top, messageId, messageType);
+                    } else {
+                        showReactionMenu(rect.right + 10, rect.top, messageId);
+                    }
+                });
+                
+                const video = msgEl.querySelector('video');
+                if (video) {
+                    video.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        zoomVideo(video);
+                    });
+                }
+            });
+            
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function renderReactions(msg) {
+            if (!msg.reactions) return '';
+            const reactions = {};
+            for (const [userId, reaction] of Object.entries(msg.reactions)) {
+                reactions[reaction] = (reactions[reaction] || 0) + 1;
+            }
+            return Object.entries(reactions).map(([reaction, count]) => 
+                `<span class="reaction" data-reaction="${reaction}">${reaction} ${count}</span>`
+            ).join('');
+        }
+
+        function renderMessageContent(msg) {
+            if (msg.type === 'text') return escapeHtml(msg.content);
+            if (msg.type === 'image') return `<img src="${msg.content}" alt="Image" onclick="window.open('${msg.content}', '_blank')">`;
+            if (msg.type === 'video') return `<video src="${msg.content}" playsinline autoplay loop muted></video>`;
+            if (msg.type === 'voice') return `<audio src="${msg.content}" controls></audio>`;
+            if (msg.type === 'file') return `<a href="${msg.content}" target="_blank">📎 ${msg.filename || 'File'}</a>`;
+            return msg.content;
+        }
+
+        function showContextMenu(x, y, messageId, messageType) {
+            if (contextMenu) contextMenu.remove();
+            contextMenu = document.createElement('div');
+            contextMenu.className = 'context-menu';
+            contextMenu.style.left = (x - 150) + 'px';
+            contextMenu.style.top = y + 'px';
+            
+            if (messageType === 'text') {
+                contextMenu.innerHTML = `
+                    <div class="context-menu-item" data-action="edit">✏️ Edit</div>
+                    <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+                `;
+                contextMenu.querySelector('[data-action="edit"]').onclick = () => {
+                    editMessage(messageId);
+                    contextMenu.remove();
+                };
+            } else {
+                contextMenu.innerHTML = `
+                    <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+                `;
+            }
+            
+            contextMenu.querySelector('[data-action="delete"]').onclick = () => {
+                deleteMessage(messageId);
+                contextMenu.remove();
+            };
+            
+            document.body.appendChild(contextMenu);
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => contextMenu.remove(), { once: true });
+            }, 10);
+        }
+
+        function showReactionMenu(x, y, messageId) {
+            if (reactionMenu) reactionMenu.remove();
+            reactionMenu = document.createElement('div');
+            reactionMenu.className = 'reaction-menu';
+            reactionMenu.style.left = x + 'px';
+            reactionMenu.style.top = y + 'px';
+            reactionMenu.innerHTML = `
+                <span class="reaction-emoji" data-reaction="❤️">❤️</span>
+                <span class="reaction-emoji" data-reaction="👍">👍</span>
+                <span class="reaction-emoji" data-reaction="😂">😂</span>
+                <span class="reaction-emoji" data-reaction="😮">😮</span>
+                <span class="reaction-emoji" data-reaction="😢">😢</span>
+                <span class="reaction-emoji" data-reaction="😡">😡</span>
+            `;
+            document.body.appendChild(reactionMenu);
+            
+            reactionMenu.querySelectorAll('.reaction-emoji').forEach(emoji => {
+                emoji.onclick = () => {
+                    addReaction(messageId, emoji.dataset.reaction);
+                    reactionMenu.remove();
+                };
+            });
+            
+            setTimeout(() => {
+                document.addEventListener('click', () => reactionMenu.remove(), { once: true });
+            }, 10);
+        }
+
+        function editMessage(messageId) {
+            const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+            const oldText = messageEl.querySelector('div').innerText;
+            const newText = prompt('Edit message:', oldText);
+            if (newText && newText !== oldText) {
+                socket.emit('edit_message', {
+                    message_id: messageId,
+                    new_content: newText,
+                    user_id: currentUser.id,
+                    chat_with: currentChatUser.id
+                });
+            }
+        }
+
+        function deleteMessage(messageId) {
+            if (confirm('Delete this message?')) {
+                socket.emit('delete_message', {
+                    message_id: messageId,
+                    user_id: currentUser.id,
+                    chat_with: currentChatUser.id
+                });
+                const msgIndex = currentMessages.findIndex(m => m.id === messageId);
+                if (msgIndex !== -1) {
+                    currentMessages.splice(msgIndex, 1);
+                    renderMessages();
+                }
+            }
+        }
+
+        function addReaction(messageId, reaction) {
+            socket.emit('add_reaction', {
+                message_id: messageId,
+                reaction: reaction,
+                user_id: currentUser.id,
+                chat_with: currentChatUser.id
+            });
+        }
+
+        function sendMessage() {
+            if (!currentChatUser) {
+                alert('Select a friend first');
+                return;
+            }
+            const text = messageInput.value.trim();
+            if (!text) return;
+            if (isTextSending) return;
+            isTextSending = true;
+            
+            socket.emit('private_message', {
+                from_user_id: currentUser.id,
+                to_user_id: currentChatUser.id,
+                message: { type: 'text', content: text }
+            });
+            messageInput.value = '';
+            updateActionButton();
+            
+            setTimeout(() => {
+                isTextSending = false;
+            }, 500);
+        }
+
+        async function uploadAndSend(file, type) {
+            if (!currentChatUser) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (res.ok) {
+                socket.emit('private_message', {
+                    from_user_id: currentUser.id,
+                    to_user_id: currentChatUser.id,
+                    message: { type, content: data.url, name: data.name }
+                });
+            }
+        }
+
+        let searchTimeout;
+        searchInput.addEventListener('input', async () => {
+            clearTimeout(searchTimeout);
+            const query = searchInput.value.trim();
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch('/api/search_users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query, user_id: currentUser?.id })
+                    });
+                    const users = await res.json();
+                    if (users && users.length > 0) {
+                        searchResults.style.display = 'block';
+                        searchResults.innerHTML = users.map(u => `
+                            <div class="search-result-item">
+                                <div>
+                                    <strong>${escapeHtml(u.username)}</strong>
+                                    <div style="font-size:0.7rem">${u.online ? '🟢 Online' : '⚫ Offline'}</div>
+                                </div>
+                                ${!u.is_friend ? `<button class="add-friend-btn" onclick="addFriend('${u.id}')">Add</button>` : '<span style="font-size:0.7rem;color:#666">✓ Friend</span>'}
+                            </div>
+                        `).join('');
+                    } else {
+                        searchResults.style.display = 'block';
+                        searchResults.innerHTML = '<div class="search-result-item">No users found</div>';
+                    }
+                } catch (err) {
+                    console.error('Search error:', err);
+                }
+            }, 500);
+        });
+
+        window.addFriend = async (friendId) => {
+            try {
+                const res = await fetch('/api/add_friend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUser.id, friend_id: friendId })
+                });
+                if (res.ok) {
+                    searchInput.value = '';
+                    searchResults.style.display = 'none';
+                    loadFriends();
+                }
+            } catch (err) {
+                console.error('Add friend error:', err);
+            }
+        };
+
+        document.getElementById('attach-file').onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = (e) => {
+                if (e.target.files[0]) {
+                    const file = e.target.files[0];
+                    if (file.type.startsWith('image/')) uploadAndSend(file, 'image');
+                    else if (file.type.startsWith('video/')) uploadAndSend(file, 'video');
+                    else uploadAndSend(file, 'file');
+                }
+            };
+            input.click();
+        };
+
+        socket.on('friends_list', (friends) => {
+            friendsList = friends || [];
+            renderFriends();
+        });
+
+        socket.on('messages_history', (messages) => {
+            currentMessages = messages || [];
+            renderMessages();
+        });
+
+        socket.on('new_private_message', (data) => {
+            const exists = currentMessages.some(m => m.id === data.message.id);
+            if (!exists) {
+                currentMessages.push(data.message);
+                if (currentChatUser && currentChatUser.id === data.from_user_id) {
+                    renderMessages();
+                }
+            }
+            loadFriends();
+        });
+
+        socket.on('friend_added', () => loadFriends());
+
+        socket.on('user_typing_private', (data) => {
+            if (currentChatUser && currentChatUser.id === data.from_user_id) {
+                typingIndicator.style.display = data.is_typing ? 'block' : 'none';
+                typingIndicator.innerText = data.is_typing ? `${data.from_username} is typing...` : '';
+            }
+        });
+
+        socket.on('message_edited', (data) => {
+            const msgIndex = currentMessages.findIndex(m => m.id === data.message_id);
+            if (msgIndex !== -1) {
+                currentMessages[msgIndex].content = data.new_content;
+                currentMessages[msgIndex].edited = true;
+                renderMessages();
+            }
+        });
+
+        socket.on('message_deleted', (data) => {
+            const msgIndex = currentMessages.findIndex(m => m.id === data.message_id);
+            if (msgIndex !== -1) {
+                currentMessages.splice(msgIndex, 1);
+                renderMessages();
+            }
+        });
+
+        socket.on('reaction_added', (data) => {
+            const msgIndex = currentMessages.findIndex(m => m.id === data.message_id);
+            if (msgIndex !== -1) {
+                if (!currentMessages[msgIndex].reactions) {
+                    currentMessages[msgIndex].reactions = {};
+                }
+                currentMessages[msgIndex].reactions[data.by] = data.reaction;
+                renderMessages();
+            }
+            loadFriends();
+        });
+
+        socket.on('unread_count', (data) => {
+            const friend = friendsList.find(f => f.id === data.from);
+            if (friend) {
+                friend.unread = data.count;
+                renderFriends();
+            }
+        });
+
+        socket.on('messages_read', (data) => {
+            if (currentChatUser && currentChatUser.id === data.by) {
+                for (const msg of currentMessages) {
+                    if (msg.from_id === currentUser.id && msg.status !== 'read') {
+                        msg.status = 'read';
+                    }
+                }
+                renderMessages();
+            }
+        });
+
+        messageInput.addEventListener('input', updateActionButton);
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function escapeHtml(t) {
+            if (!t) return '';
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        tryAutoLogin();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service-worker.js').catch(console.error);
+        }
+    </script>
+</body>
+</html>
