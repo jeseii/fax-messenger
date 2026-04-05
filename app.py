@@ -207,10 +207,10 @@ def create_group():
     
     save_messages(private_messages)
     
-    # Уведомляем всех участников
+    # Уведомляем всех участников - ИСПРАВЛЕНО: socketio.emit вместо emit
     for member_id in all_members:
         if member_id in active_users:
-            emit('group_created', {"group": groups_db[group_id]}, to=active_users[member_id]['sid'])
+            socketio.emit('group_created', {"group": groups_db[group_id]}, to=active_users[member_id]['sid'])
             update_groups_list(member_id)
     
     return jsonify(groups_db[group_id])
@@ -244,7 +244,7 @@ def add_to_group():
         save_messages(private_messages)
         
         if new_member_id in active_users:
-            emit('group_updated', {"group": groups_db[group_id]}, to=active_users[new_member_id]['sid'])
+            socketio.emit('group_updated', {"group": groups_db[group_id]}, to=active_users[new_member_id]['sid'])
             update_groups_list(new_member_id)
     
     return jsonify(groups_db[group_id])
