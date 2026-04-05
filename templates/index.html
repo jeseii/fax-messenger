@@ -17,6 +17,7 @@
             width: 100%;
             overflow: hidden;
             position: fixed;
+            background: #0a0f0f;
         }
 
         body {
@@ -27,10 +28,10 @@
 
         /* Эффект жидкого стекла */
         .glass {
-            background: rgba(15, 20, 20, 0.7);
+            background: rgba(15, 20, 20, 0.6);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(42, 157, 143, 0.25);
+            border: 1px solid rgba(42, 157, 143, 0.2);
         }
 
         #login-screen {
@@ -47,12 +48,12 @@
         }
 
         .login-box {
-            background: rgba(26, 31, 31, 0.85);
+            background: rgba(26, 31, 31, 0.8);
             backdrop-filter: blur(20px);
             padding: 2rem;
             border-radius: 2rem;
             text-align: center;
-            border: 1px solid rgba(42, 157, 143, 0.4);
+            border: 1px solid rgba(42, 157, 143, 0.3);
             width: 90%;
             max-width: 350px;
         }
@@ -63,7 +64,7 @@
         }
 
         .login-box input {
-            background: rgba(30, 42, 42, 0.9);
+            background: rgba(30, 42, 42, 0.8);
             border: 1px solid rgba(42, 157, 143, 0.3);
             color: white;
             padding: 0.75rem;
@@ -93,9 +94,9 @@
 
         .friends-panel {
             width: 280px;
-            background: rgba(15, 20, 20, 0.85);
+            background: rgba(15, 20, 20, 0.7);
             backdrop-filter: blur(12px);
-            border-right: 1px solid rgba(42, 157, 143, 0.3);
+            border-right: 1px solid rgba(42, 157, 143, 0.2);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -104,8 +105,8 @@
 
         .friends-header {
             padding: 1rem;
-            border-bottom: 1px solid rgba(42, 157, 143, 0.3);
-            background: rgba(10, 15, 15, 0.9);
+            border-bottom: 1px solid rgba(42, 157, 143, 0.2);
+            background: rgba(10, 15, 15, 0.8);
             cursor: pointer;
         }
 
@@ -122,12 +123,12 @@
 
         .search-box {
             padding: 0.8rem;
-            border-bottom: 1px solid rgba(30, 42, 42, 0.5);
+            border-bottom: 1px solid rgba(30, 42, 42, 0.3);
         }
 
         .search-box input {
             width: 100%;
-            background: rgba(26, 31, 31, 0.9);
+            background: rgba(26, 31, 31, 0.8);
             border: 1px solid rgba(42, 157, 143, 0.3);
             border-radius: 2rem;
             padding: 0.5rem 0.8rem;
@@ -138,7 +139,7 @@
         .search-results {
             max-height: 200px;
             overflow-y: auto;
-            background: rgba(26, 31, 31, 0.95);
+            background: rgba(26, 31, 31, 0.9);
             backdrop-filter: blur(10px);
             border-radius: 1rem;
             margin-top: 0.5rem;
@@ -149,7 +150,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(30, 42, 42, 0.5);
+            border-bottom: 1px solid rgba(30, 42, 42, 0.3);
         }
 
         .add-friend-btn {
@@ -180,7 +181,7 @@
         }
 
         .friend-item:hover {
-            background: rgba(30, 42, 42, 0.5);
+            background: rgba(30, 42, 42, 0.4);
         }
 
         .friend-item.active {
@@ -237,14 +238,14 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            background: rgba(10, 15, 15, 0.95);
+            background: rgba(10, 15, 15, 0.9);
             height: 100%;
         }
 
         .chat-header {
             padding: 1rem;
-            border-bottom: 1px solid rgba(42, 157, 143, 0.3);
-            background: rgba(15, 20, 20, 0.9);
+            border-bottom: 1px solid rgba(42, 157, 143, 0.2);
+            background: rgba(15, 20, 20, 0.8);
             backdrop-filter: blur(10px);
             display: flex;
             justify-content: space-between;
@@ -259,7 +260,7 @@
 
         .back-btn {
             display: none;
-            background: rgba(30, 42, 42, 0.8);
+            background: rgba(30, 42, 42, 0.7);
             border: none;
             color: #2a9d8f;
             font-size: 1rem;
@@ -296,20 +297,20 @@
             position: relative;
             display: inline-block;
             width: auto;
+            background: rgba(30, 36, 36, 0.7);
+            backdrop-filter: blur(5px);
         }
 
         .message.own {
             align-self: flex-end;
-            background: rgba(42, 157, 143, 0.9);
-            backdrop-filter: blur(5px);
+            background: rgba(42, 157, 143, 0.7);
             color: white;
             border-bottom-right-radius: 0.25rem;
         }
 
         .message.other {
             align-self: flex-start;
-            background: rgba(30, 36, 36, 0.85);
-            backdrop-filter: blur(5px);
+            background: rgba(30, 36, 36, 0.7);
             border-bottom-left-radius: 0.25rem;
         }
 
@@ -369,6 +370,7 @@
             z-index: 1000;
             border-radius: 50%;
             box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.8);
         }
 
         .message audio {
@@ -392,16 +394,12 @@
         }
 
         .reaction {
-            background: rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.1);
             border-radius: 1rem;
             padding: 0.1rem 0.4rem;
             font-size: 0.7rem;
             cursor: pointer;
             transition: transform 0.1s;
-        }
-
-        .reaction:hover {
-            transform: scale(1.1);
         }
 
         .action-area {
@@ -419,7 +417,7 @@
 
         .context-menu {
             position: fixed;
-            background: rgba(26, 31, 31, 0.95);
+            background: rgba(26, 31, 31, 0.9);
             backdrop-filter: blur(20px);
             border-radius: 1rem;
             overflow: hidden;
@@ -439,12 +437,12 @@
         }
 
         .context-menu-item:hover {
-            background: rgba(42, 58, 58, 0.8);
+            background: rgba(42, 58, 58, 0.7);
         }
 
         .reaction-menu {
             position: fixed;
-            background: rgba(26, 31, 31, 0.95);
+            background: rgba(26, 31, 31, 0.9);
             backdrop-filter: blur(20px);
             border-radius: 2rem;
             padding: 0.5rem;
@@ -467,7 +465,7 @@
             color: #2a9d8f;
             font-style: italic;
             padding: 0.2rem 1rem;
-            background: rgba(10, 15, 15, 0.9);
+            background: rgba(10, 15, 15, 0.8);
             flex-shrink: 0;
         }
 
@@ -476,15 +474,15 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            border-top: 1px solid rgba(42, 157, 143, 0.3);
-            background: rgba(15, 20, 20, 0.9);
+            border-top: 1px solid rgba(42, 157, 143, 0.2);
+            background: rgba(15, 20, 20, 0.7);
             backdrop-filter: blur(10px);
             flex-shrink: 0;
             min-height: 56px;
         }
 
         .media-btn {
-            background: rgba(30, 42, 42, 0.8);
+            background: rgba(30, 42, 42, 0.7);
             border: none;
             font-size: 1.2rem;
             border-radius: 50%;
@@ -500,7 +498,7 @@
 
         #message-input {
             flex: 1;
-            background: rgba(26, 31, 31, 0.8);
+            background: rgba(26, 31, 31, 0.7);
             border: 1px solid rgba(42, 157, 143, 0.3);
             border-radius: 2rem;
             padding: 0.6rem 1rem;
@@ -535,12 +533,13 @@
             animation: pulse 0.5s infinite;
         }
 
+        /* Панель записи голосового - стеклянная плашка внизу */
         .voice-recording-panel {
             position: fixed;
             bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(26, 31, 31, 0.95);
+            background: rgba(26, 31, 31, 0.9);
             backdrop-filter: blur(20px);
             padding: 0.5rem 1rem;
             display: none;
@@ -574,7 +573,7 @@
         }
 
         .voice-recording-panel .stop-btn {
-            background: rgba(231, 76, 60, 0.8);
+            background: rgba(231, 76, 60, 0.7);
             border: none;
             border-radius: 1.5rem;
             padding: 0.2rem 0.8rem;
@@ -583,11 +582,12 @@
             font-size: 0.7rem;
         }
 
+        /* Панель для заблокированной записи (отправить/отмена) - справа */
         .locked-panel {
             position: fixed;
             bottom: 70px;
             right: 20px;
-            background: rgba(26, 31, 31, 0.95);
+            background: rgba(26, 31, 31, 0.9);
             backdrop-filter: blur(20px);
             padding: 0.5rem 1rem;
             display: none;
@@ -603,7 +603,7 @@
         }
 
         .locked-panel .send-btn, .locked-panel .cancel-btn {
-            background: rgba(42, 157, 143, 0.8);
+            background: rgba(42, 157, 143, 0.7);
             border: none;
             border-radius: 1.5rem;
             padding: 0.3rem 1rem;
@@ -613,9 +613,10 @@
         }
 
         .locked-panel .cancel-btn {
-            background: rgba(231, 76, 60, 0.8);
+            background: rgba(231, 76, 60, 0.7);
         }
 
+        /* Превью видео - большой круг по центру */
         .video-preview {
             position: fixed;
             top: 50%;
@@ -625,9 +626,9 @@
             height: 250px;
             border-radius: 50%;
             overflow: hidden;
-            background: rgba(26, 31, 31, 0.95);
+            background: rgba(26, 31, 31, 0.9);
             backdrop-filter: blur(20px);
-            border: 3px solid rgba(42, 157, 143, 0.8);
+            border: 2px solid rgba(42, 157, 143, 0.5);
             z-index: 100;
             display: none;
             box-shadow: 0 0 30px rgba(0,0,0,0.5);
@@ -996,7 +997,7 @@
             isRecording = false;
         }
 
-        // Видео запись
+        // Видео запись с большим круглым превью
         async function startVideoRecording() {
             if (!currentChatUser || isRecording) return;
             try {
@@ -1084,6 +1085,7 @@
             
             if (currentMode === 'voice') {
                 showLockedPanel();
+                // Плашка остаётся, кнопки появляются справа
             } else {
                 showLockedPanel();
             }
