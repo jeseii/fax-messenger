@@ -19,6 +19,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 USERS_FILE = 'users_data.json'
 FRIENDS_FILE = 'friends_data.json'
 MESSAGES_FILE = 'messages_data.json'
+GROUPS_FILE = 'groups_data.json'
 
 def load_users():
     if os.path.exists(USERS_FILE):
@@ -50,10 +51,21 @@ def save_messages(data):
     with open(MESSAGES_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+def load_groups():
+    if os.path.exists(GROUPS_FILE):
+        with open(GROUPS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_groups(data):
+    with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 # Загружаем данные
 users_db = load_users()
 friends_db = load_friends()
 private_messages = load_messages()
+groups_db = load_groups()
 active_users = {}
 unread_counts = {}
 
@@ -141,6 +153,116 @@ def remove_friend():
     
     return jsonify({"success": True})
 
+# === ГРУППОВЫЕ ЧАТЫ ===
+@app.route('/api/get_friends_for_group', methods=['POST'])
+def get_friends_for_group():
+    data = request.json
+    user_id = data.get('user_id')
+    friends_list = []
+    for friend_id in friends_db.get(user_id, []):
+        if friend_id in users_db:
+            friends_list.append({
+                "id": friend_id,
+                "username": users_db[friend_id]['username'],
+                "avatar": users_db[friend_id].get('avatar')
+            })
+    return jsonify(friends_list)
+
+@app.route('/api/create_group', methods=['POST'])
+def create_group():
+    data = request.json
+    creator_id = data.get('creator_id')
+    group_name = data.get('name')
+    member_ids = data.get('members', [])
+    
+    if creator_id not in users_db:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Создаём уникальную группу
+    all_members = list(set([creator_id] + member_ids))
+    group_id = str(uuid.uuid4())[:8]
+    
+    groups_db[group_id] = {
+        "id": group_id,
+        "name": group_name,
+        "creator": creator_id,
+        "members": all_members,
+        "avatar": None,
+        "created_at": datetime.now().isoformat(),
+        "is_group": True
+    }
+    save_groups(groups_db)
+    
+    # Создаём пустую историю сообщений для группы
+    if group_id not in private_messages:
+        private_messages[group_id] = {}
+    for member_id in all_members:
+        if member_id not in private_messages:
+            private_messages[member_id] = {}
+        if group_id not in private_messages[member_id]:
+            private_messages[member_id][group_id] = []
+        if member_id not in private_messages[group_id]:
+            private_messages[group_id][member_id] = []
+    
+    save_messages(private_messages)
+    
+    # === НОВОЕ: уведомляем ВСЕХ участников о создании группы ===
+    for member_id in all_members:
+        if member_id in active_users:
+            # Отправляем событие о новой группе
+            emit('group_created', {"group": groups_db[group_id]}, to=active_users[member_id]['sid'])
+            # Обновляем список групп у участника
+            user_groups = [g for g in groups_db.values() if member_id in g['members']]
+            emit('groups_list', user_groups, to=active_users[member_id]['sid'])
+    
+    return jsonify(groups_db[group_id])
+
+@app.route('/api/add_to_group', methods=['POST'])
+def add_to_group():
+    data = request.json
+    group_id = data.get('group_id')
+    user_id = data.get('user_id')
+    new_member_id = data.get('new_member_id')
+    
+    if group_id not in groups_db:
+        return jsonify({"error": "Group not found"}), 404
+    if user_id != groups_db[group_id]['creator']:
+        return jsonify({"error": "Only creator can add members"}), 403
+    
+    if new_member_id not in groups_db[group_id]['members']:
+        groups_db[group_id]['members'].append(new_member_id)
+        save_groups(groups_db)
+        
+        if new_member_id in active_users:
+            emit('group_updated', {"group": groups_db[group_id]}, to=active_users[new_member_id]['sid'])
+    
+    return jsonify(groups_db[group_id])
+
+@app.route('/api/leave_group', methods=['POST'])
+def leave_group():
+    data = request.json
+    group_id = data.get('group_id')
+    user_id = data.get('user_id')
+    
+    if group_id not in groups_db:
+        return jsonify({"error": "Group not found"}), 404
+    
+    if user_id in groups_db[group_id]['members']:
+        groups_db[group_id]['members'].remove(user_id)
+        if len(groups_db[group_id]['members']) == 0:
+            del groups_db[group_id]
+        else:
+            save_groups(groups_db)
+    
+    return jsonify({"success": True})
+
+@app.route('/api/get_groups', methods=['POST'])
+def get_groups():
+    data = request.json
+    user_id = data.get('user_id')
+    user_groups = [g for g in groups_db.values() if user_id in g['members']]
+    return jsonify(user_groups)
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -183,28 +305,45 @@ def handle_register(data):
             unread_counts[user_id] = {}
         
         update_friends_list(user_id)
+        update_groups_list(user_id)
 
 @socketio.on('mark_as_read')
 def handle_mark_as_read(data):
     user_id = data.get('user_id')
-    other_user_id = data.get('other_user_id')
+    chat_id = data.get('chat_id')
     
-    if user_id in unread_counts and other_user_id in unread_counts[user_id]:
-        unread_counts[user_id][other_user_id] = 0
-        save_messages(private_messages)
+    if user_id in unread_counts:
+        unread_counts[user_id][chat_id] = 0
     
-    if other_user_id in active_users:
-        to_sid = active_users[other_user_id]['sid']
-        emit('messages_read', {"by": user_id, "chat_with": other_user_id}, to=to_sid)
+    if chat_id in active_users:
+        emit('messages_read', {"by": user_id, "chat_with": chat_id}, to=active_users[chat_id]['sid'])
+    
+    if user_id in private_messages and chat_id in private_messages[user_id]:
+        for msg in private_messages[user_id][chat_id]:
+            if msg['from_id'] == chat_id and msg.get('status') != 'read':
+                msg['status'] = 'read'
+    
+    if chat_id in private_messages and user_id in private_messages[chat_id]:
+        for msg in private_messages[chat_id][user_id]:
+            if msg['from_id'] == user_id and msg.get('status') != 'read':
+                msg['status'] = 'read'
+    
+    save_messages(private_messages)
 
 @socketio.on('edit_message')
 def handle_edit_message(data):
     message_id = data.get('message_id')
     new_content = data.get('new_content')
     user_id = data.get('user_id')
-    chat_with = data.get('chat_with')
+    chat_id = data.get('chat_id')
     
-    for msg in private_messages.get(user_id, {}).get(chat_with, []):
+    for msg in private_messages.get(user_id, {}).get(chat_id, []):
+        if msg['id'] == message_id and msg['from_id'] == user_id:
+            msg['content'] = new_content
+            msg['edited'] = True
+            break
+    
+    for msg in private_messages.get(chat_id, {}).get(user_id, []):
         if msg['id'] == message_id and msg['from_id'] == user_id:
             msg['content'] = new_content
             msg['edited'] = True
@@ -214,43 +353,43 @@ def handle_edit_message(data):
     
     if user_id in active_users:
         emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[user_id]['sid'])
-    if chat_with in active_users:
-        emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[chat_with]['sid'])
+    if chat_id in active_users:
+        emit('message_edited', {"message_id": message_id, "new_content": new_content}, to=active_users[chat_id]['sid'])
 
 @socketio.on('delete_message')
 def handle_delete_message(data):
     message_id = data.get('message_id')
     user_id = data.get('user_id')
-    chat_with = data.get('chat_with')
+    chat_id = data.get('chat_id')
     
-    if user_id in private_messages and chat_with in private_messages[user_id]:
-        private_messages[user_id][chat_with] = [m for m in private_messages[user_id][chat_with] if m['id'] != message_id]
+    if user_id in private_messages and chat_id in private_messages[user_id]:
+        private_messages[user_id][chat_id] = [msg for msg in private_messages[user_id][chat_id] if msg['id'] != message_id]
     
-    if chat_with in private_messages and user_id in private_messages[chat_with]:
-        private_messages[chat_with][user_id] = [m for m in private_messages[chat_with][user_id] if m['id'] != message_id]
+    if chat_id in private_messages and user_id in private_messages[chat_id]:
+        private_messages[chat_id][user_id] = [msg for msg in private_messages[chat_id][user_id] if msg['id'] != message_id]
     
     save_messages(private_messages)
     
     if user_id in active_users:
         emit('message_deleted', {"message_id": message_id}, to=active_users[user_id]['sid'])
-    if chat_with in active_users:
-        emit('message_deleted', {"message_id": message_id}, to=active_users[chat_with]['sid'])
+    if chat_id in active_users:
+        emit('message_deleted', {"message_id": message_id}, to=active_users[chat_id]['sid'])
 
 @socketio.on('add_reaction')
 def handle_add_reaction(data):
     message_id = data.get('message_id')
     reaction = data.get('reaction')
     user_id = data.get('user_id')
-    chat_with = data.get('chat_with')
+    chat_id = data.get('chat_id')
     
-    for msg in private_messages.get(user_id, {}).get(chat_with, []):
+    for msg in private_messages.get(user_id, {}).get(chat_id, []):
         if msg['id'] == message_id:
             if 'reactions' not in msg:
                 msg['reactions'] = {}
             msg['reactions'][user_id] = reaction
             break
     
-    for msg in private_messages.get(chat_with, {}).get(user_id, []):
+    for msg in private_messages.get(chat_id, {}).get(user_id, []):
         if msg['id'] == message_id:
             if 'reactions' not in msg:
                 msg['reactions'] = {}
@@ -261,8 +400,20 @@ def handle_add_reaction(data):
     
     if user_id in active_users:
         emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[user_id]['sid'])
-    if chat_with in active_users:
-        emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[chat_with]['sid'])
+    if chat_id in active_users:
+        emit('reaction_added', {"message_id": message_id, "reaction": reaction, "by": user_id}, to=active_users[chat_id]['sid'])
+
+@socketio.on('join_group')
+def handle_join_group(data):
+    user_id = data.get('user_id')
+    group_id = data.get('group_id')
+    
+    if group_id in groups_db and user_id in groups_db[group_id]['members']:
+        if user_id not in private_messages:
+            private_messages[user_id] = {}
+        if group_id not in private_messages[user_id]:
+            private_messages[user_id][group_id] = []
+        emit('group_history', private_messages[user_id].get(group_id, []), to=request.sid)
 
 @socketio.on('get_friends')
 def handle_get_friends():
@@ -282,6 +433,7 @@ def handle_get_friends():
                 "id": friend_id,
                 "username": users_db[friend_id]['username'],
                 "online": users_db[friend_id].get('online', False),
+                "avatar": users_db[friend_id].get('avatar'),
                 "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
     
@@ -290,26 +442,28 @@ def handle_get_friends():
 @socketio.on('get_messages')
 def handle_get_messages(data):
     user_id = data.get('user_id')
-    other_user_id = data.get('other_user_id')
+    chat_id = data.get('chat_id')
     
     if user_id in unread_counts:
-        unread_counts[user_id][other_user_id] = 0
+        unread_counts[user_id][chat_id] = 0
     
-    if user_id in private_messages and other_user_id in private_messages[user_id]:
-        emit('messages_history', private_messages[user_id][other_user_id])
+    if user_id in private_messages and chat_id in private_messages[user_id]:
+        emit('messages_history', private_messages[user_id][chat_id])
     else:
         emit('messages_history', [])
 
 @socketio.on('private_message')
 def handle_private_message(data):
     from_user_id = data.get('from_user_id')
-    to_user_id = data.get('to_user_id')
+    to_chat_id = data.get('to_chat_id')
     message = data.get('message')
     
-    if from_user_id not in users_db or to_user_id not in users_db:
+    if from_user_id not in users_db:
         return
     
     from_username = users_db[from_user_id]['username']
+    is_group = to_chat_id in groups_db
+    chat_name = groups_db[to_chat_id]['name'] if is_group else users_db.get(to_chat_id, {}).get('username', '')
     
     message_data = {
         "id": str(uuid.uuid4())[:8],
@@ -319,62 +473,96 @@ def handle_private_message(data):
         "from_id": from_user_id,
         "timestamp": datetime.now().isoformat(),
         "filename": message.get('name', ''),
-        "status": "sent"
+        "status": "sent",
+        "is_group": is_group,
+        "chat_name": chat_name
     }
+    
+    if message.get('reply_to'):
+        message_data['reply_to'] = message['reply_to']
     
     # Сохраняем для отправителя
     if from_user_id not in private_messages:
         private_messages[from_user_id] = {}
-    if to_user_id not in private_messages[from_user_id]:
-        private_messages[from_user_id][to_user_id] = []
-    private_messages[from_user_id][to_user_id].append(message_data)
+    if to_chat_id not in private_messages[from_user_id]:
+        private_messages[from_user_id][to_chat_id] = []
+    private_messages[from_user_id][to_chat_id].append(message_data)
     
-    # Сохраняем для получателя
-    if to_user_id not in private_messages:
-        private_messages[to_user_id] = {}
-    if from_user_id not in private_messages[to_user_id]:
-        private_messages[to_user_id][from_user_id] = []
-    private_messages[to_user_id][from_user_id].append(message_data)
+    # Сохраняем для получателя/группы
+    if to_chat_id not in private_messages:
+        private_messages[to_chat_id] = {}
+    if from_user_id not in private_messages[to_chat_id]:
+        private_messages[to_chat_id][from_user_id] = []
+    private_messages[to_chat_id][from_user_id].append(message_data)
     
-    # Увеличиваем счётчик непрочитанных
-    if to_user_id not in unread_counts:
-        unread_counts[to_user_id] = {}
-    unread_counts[to_user_id][from_user_id] = unread_counts[to_user_id].get(from_user_id, 0) + 1
+    # Счётчик непрочитанных
+    if to_chat_id not in unread_counts:
+        unread_counts[to_chat_id] = {}
+    unread_counts[to_chat_id][from_user_id] = unread_counts[to_chat_id].get(from_user_id, 0) + 1
     
     save_messages(private_messages)
     
-    # Отправляем получателю
-    if to_user_id in active_users:
-        to_sid = active_users[to_user_id]['sid']
-        emit('new_private_message', {
-            "from_user_id": from_user_id,
-            "from_username": from_username,
-            "message": message_data
-        }, to=to_sid)
-        emit('unread_count', {"from": from_user_id, "count": unread_counts[to_user_id][from_user_id]}, to=to_sid)
+    # === ГРУППОВОЙ ЧАТ: отправляем ВСЕМ участникам ===
+    if is_group and to_chat_id in groups_db:
+        for member_id in groups_db[to_chat_id]['members']:
+            if member_id in active_users:
+                emit('new_private_message', {
+                    "from_user_id": from_user_id,
+                    "from_username": from_username,
+                    "message": message_data,
+                    "is_group": True,
+                    "group_name": groups_db[to_chat_id]['name'],
+                    "chat_id": to_chat_id
+                }, to=active_users[member_id]['sid'])
+    # === ЛИЧНЫЙ ЧАТ: отправляем получателю ===
+    else:
+        if to_chat_id in active_users:
+            emit('new_private_message', {
+                "from_user_id": from_user_id,
+                "from_username": from_username,
+                "message": message_data,
+                "chat_id": to_chat_id
+            }, to=active_users[to_chat_id]['sid'])
     
-    # Отправляем отправителю
+    # Отправляем подтверждение отправителю
     emit('new_private_message', {
-        "from_user_id": to_user_id,
-        "from_username": users_db[to_user_id]['username'],
-        "message": message_data
+        "from_user_id": to_chat_id,
+        "from_username": chat_name,
+        "message": message_data,
+        "chat_id": to_chat_id
     }, to=request.sid)
     
     update_friends_list(from_user_id)
+    update_groups_list(from_user_id)
 
 @socketio.on('typing_private')
 def handle_typing_private(data):
     from_user_id = data.get('from_user_id')
-    to_user_id = data.get('to_user_id')
+    to_chat_id = data.get('to_chat_id')
     is_typing = data.get('is_typing', False)
     
-    if from_user_id in users_db and to_user_id in active_users:
-        to_sid = active_users[to_user_id]['sid']
-        emit('user_typing_private', {
-            "from_user_id": from_user_id,
-            "from_username": users_db[from_user_id]['username'],
-            "is_typing": is_typing
-        }, to=to_sid)
+    if from_user_id not in users_db:
+        return
+    
+    is_group = to_chat_id in groups_db
+    
+    if is_group and to_chat_id in groups_db:
+        for member_id in groups_db[to_chat_id]['members']:
+            if member_id in active_users and member_id != from_user_id:
+                emit('user_typing_private', {
+                    "from_user_id": from_user_id,
+                    "from_username": users_db[from_user_id]['username'],
+                    "is_typing": is_typing,
+                    "is_group": True,
+                    "group_name": groups_db[to_chat_id]['name']
+                }, to=active_users[member_id]['sid'])
+    else:
+        if to_chat_id in active_users:
+            emit('user_typing_private', {
+                "from_user_id": from_user_id,
+                "from_username": users_db[from_user_id]['username'],
+                "is_typing": is_typing
+            }, to=active_users[to_chat_id]['sid'])
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -390,7 +578,6 @@ def handle_disconnect():
 def update_friends_list(user_id):
     if user_id not in active_users:
         return
-    
     friends_list = []
     for friend_id in friends_db.get(user_id, []):
         if friend_id in users_db:
@@ -398,12 +585,15 @@ def update_friends_list(user_id):
                 "id": friend_id,
                 "username": users_db[friend_id]['username'],
                 "online": users_db[friend_id].get('online', False),
+                "avatar": users_db[friend_id].get('avatar'),
                 "unread": unread_counts.get(user_id, {}).get(friend_id, 0)
             })
-    
     sid = active_users[user_id]['sid']
     emit('friends_list', friends_list, to=sid)
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    socketio.run(app, host='0.0.0.0', port=port)
+def update_groups_list(user_id):
+    if user_id not in active_users:
+        return
+    groups_list = [g for g in groups_db.values() if user_id in g['members']]
+    sid = active_users[user_id]['sid']
+    emit('groups_list',
