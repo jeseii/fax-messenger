@@ -26,7 +26,6 @@
             color: #e0e0e0;
         }
 
-        /* Эффект жидкого стекла */
         .glass {
             background: rgba(15, 20, 20, 0.6);
             backdrop-filter: blur(20px);
@@ -533,7 +532,6 @@
             animation: pulse 0.5s infinite;
         }
 
-        /* Панель записи голосового - стеклянная плашка внизу */
         .voice-recording-panel {
             position: fixed;
             bottom: 70px;
@@ -582,7 +580,6 @@
             font-size: 0.7rem;
         }
 
-        /* Панель для заблокированной записи (отправить/отмена) - справа */
         .locked-panel {
             position: fixed;
             bottom: 70px;
@@ -616,7 +613,6 @@
             background: rgba(231, 76, 60, 0.7);
         }
 
-        /* Превью видео - большой круг по центру */
         .video-preview {
             position: fixed;
             top: 50%;
@@ -793,21 +789,27 @@
         let currentChatUser = null;
         let friendsList = [];
         let currentMessages = [];
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let recordingStartTime = null;
-        let recordingInterval = null;
-        let currentStream = null;
         let contextMenu = null;
         let reactionMenu = null;
         let currentMode = 'voice';
+        let isRecording = false;
         let isRecordingLocked = false;
-        let videoRecorder = null;
+        let isPaused = false;
         let isSending = false;
         let isTextSending = false;
+        
+        // Медиа переменные
+        let mediaRecorder = null;
+        let videoRecorder = null;
+        let audioChunks = [];
+        let videoChunks = [];
+        let currentStream = null;
+        let recordingStartTime = null;
+        let recordingInterval = null;
         let recordedBlob = null;
-        let isPaused = false;
+        let touchStartY = 0;
+        let pressTimer = null;
+        let isLongPress = false;
 
         // DOM элементы
         const loginScreen = document.getElementById('login-screen');
@@ -940,7 +942,7 @@
             updateActionButton();
         }
 
-        // Голосовая запись
+        // === ГОЛОСОВАЯ ЗАПИСЬ ===
         async function startVoiceRecording() {
             if (!currentChatUser || isRecording) return;
             try {
@@ -965,7 +967,7 @@
                 mediaRecorder.start();
                 isRecording = true;
                 recordingStartTime = Date.now();
-                showVoiceRecordingPanel();
+                voiceRecordingPanel.classList.add('show');
                 startRecordingTimer();
             } catch (err) {
                 console.error('Microphone error:', err);
@@ -993,11 +995,12 @@
             if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
                 mediaRecorder.stop();
             }
-            hideVoiceRecordingPanel();
+            voiceRecordingPanel.classList.remove('show');
+            if (recordingInterval) clearInterval(recordingInterval);
             isRecording = false;
         }
 
-        // Видео запись с большим круглым превью
+        // === ВИДЕО ЗАПИСЬ ===
         async function startVideoRecording() {
             if (!currentChatUser || isRecording) return;
             try {
@@ -1007,16 +1010,16 @@
                 previewVideo.srcObject = stream;
                 
                 videoRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                let chunks = [];
+                videoChunks = [];
                 recordedBlob = null;
                 
                 videoRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) chunks.push(e.data);
+                    if (e.data.size > 0) videoChunks.push(e.data);
                 };
                 
                 videoRecorder.onstop = () => {
-                    if (chunks.length > 0) {
-                        recordedBlob = new Blob(chunks, { type: 'video/webm' });
+                    if (videoChunks.length > 0) {
+                        recordedBlob = new Blob(videoChunks, { type: 'video/webm' });
                     }
                     if (currentStream && !isRecordingLocked) {
                         currentStream.getTracks().forEach(t => t.stop());
@@ -1047,27 +1050,8 @@
                 currentStream.getTracks().forEach(t => t.stop());
                 currentStream = null;
             }
+            if (recordingInterval) clearInterval(recordingInterval);
             isRecording = false;
-        }
-
-        function showVoiceRecordingPanel() {
-            voiceRecordingPanel.classList.add('show');
-        }
-
-        function hideVoiceRecordingPanel() {
-            voiceRecordingPanel.classList.remove('show');
-            if (recordingInterval) {
-                clearInterval(recordingInterval);
-                recordingInterval = null;
-            }
-        }
-
-        function showLockedPanel() {
-            lockedPanel.classList.add('show');
-        }
-
-        function hideLockedPanel() {
-            lockedPanel.classList.remove('show');
         }
 
         function startRecordingTimer() {
@@ -1079,64 +1063,75 @@
             }, 1000);
         }
 
+        // === ОТПРАВКА ===
+        async function sendRecordedMedia() {
+            if (recordedBlob && !isSending && currentChatUser) {
+                isSending = true;
+                const file = new File([recordedBlob], currentMode === 'voice' ? `voice_${Date.now()}.webm` : `video_${Date.now()}.webm`, 
+                    { type: currentMode === 'voice' ? 'audio/webm' : 'video/webm' });
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    socket.emit('private_message', {
+                        from_user_id: currentUser.id,
+                        to_user_id: currentChatUser.id,
+                        message: { type: currentMode === 'voice' ? 'voice' : 'video', content: data.url, name: data.name }
+                    });
+                }
+                isSending = false;
+                recordedBlob = null;
+            }
+        }
+
+        function cancelRecording() {
+            recordedBlob = null;
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+            if (recordingInterval) clearInterval(recordingInterval);
+            isRecording = false;
+            isRecordingLocked = false;
+            voiceRecordingPanel.classList.remove('show');
+            videoPreview.classList.remove('show');
+            lockedPanel.classList.remove('show');
+        }
+
         function lockRecording() {
             if (!isRecording) return;
             isRecordingLocked = true;
             
             if (currentMode === 'voice') {
-                showLockedPanel();
-                // Плашка остаётся, кнопки появляются справа
+                stopVoiceRecording();
+                lockedPanel.classList.add('show');
             } else {
-                showLockedPanel();
+                stopVideoRecording();
+                lockedPanel.classList.add('show');
             }
-            
             actionBtn.classList.remove('recording');
         }
 
-        function cancelLockedRecording() {
-            recordedBlob = null;
-            hideLockedPanel();
-            if (currentMode === 'voice') {
-                hideVoiceRecordingPanel();
-            } else {
-                videoPreview.classList.remove('show');
-            }
+        sendLockedBtn.onclick = () => {
+            sendRecordedMedia();
+            lockedPanel.classList.remove('show');
             isRecordingLocked = false;
             actionBtn.classList.remove('locked');
-            isRecording = false;
             if (currentStream) {
                 currentStream.getTracks().forEach(t => t.stop());
                 currentStream = null;
             }
-        }
+        };
 
-        function sendLockedRecording() {
-            if (recordedBlob && !isSending && currentChatUser) {
-                isSending = true;
-                const file = new File([recordedBlob], currentMode === 'voice' ? `voice_${Date.now()}.webm` : `video_${Date.now()}.webm`, 
-                    { type: currentMode === 'voice' ? 'audio/webm' : 'video/webm' });
-                uploadAndSend(file, currentMode === 'voice' ? 'voice' : 'video').finally(() => {
-                    isSending = false;
-                });
-                hideLockedPanel();
-                if (currentMode === 'voice') {
-                    hideVoiceRecordingPanel();
-                } else {
-                    videoPreview.classList.remove('show');
-                }
-                isRecordingLocked = false;
-                actionBtn.classList.remove('locked');
-                recordedBlob = null;
-                isRecording = false;
-                if (currentStream) {
-                    currentStream.getTracks().forEach(t => t.stop());
-                    currentStream = null;
-                }
-            }
-        }
+        cancelLockedBtn.onclick = () => {
+            cancelRecording();
+            lockedPanel.classList.remove('show');
+            isRecordingLocked = false;
+            actionBtn.classList.remove('locked');
+        };
 
-        sendLockedBtn.onclick = sendLockedRecording;
-        cancelLockedBtn.onclick = cancelLockedRecording;
         stopVoiceBtn.onclick = () => {
             if (isPaused) {
                 resumeVoiceRecording();
@@ -1145,10 +1140,7 @@
             }
         };
 
-        let pressTimer = null;
-        let isLongPress = false;
-        let touchStartY = 0;
-
+        // === ОБРАБОТКА КНОПКИ ===
         function onActionButtonStart(e) {
             if (!currentChatUser) return;
             const hasText = messageInput.value.trim().length > 0;
@@ -1173,7 +1165,6 @@
 
         function onActionButtonMove(e) {
             if (!isRecording || !e.touches) return;
-            
             const deltaY = touchStartY - e.touches[0].clientY;
             if (deltaY > 50 && !isRecordingLocked) {
                 lockRecording();
@@ -1191,29 +1182,19 @@
             if (hasText) {
                 sendMessage();
             } else if (isLongPress && isRecording && !isRecordingLocked) {
-                // Автоматическая отправка при отпускании (без свайпа)
+                // Автоматическая отправка
                 if (currentMode === 'voice') {
                     stopVoiceRecording();
                 } else {
                     stopVideoRecording();
                     videoPreview.classList.remove('show');
                 }
-                hideVoiceRecordingPanel();
-                
-                if (recordedBlob && !isSending) {
-                    isSending = true;
-                    const file = new File([recordedBlob], currentMode === 'voice' ? `voice_${Date.now()}.webm` : `video_${Date.now()}.webm`, 
-                        { type: currentMode === 'voice' ? 'audio/webm' : 'video/webm' });
-                    uploadAndSend(file, currentMode === 'voice' ? 'voice' : 'video').finally(() => {
-                        isSending = false;
-                    });
-                    recordedBlob = null;
-                }
-                isRecording = false;
+                sendRecordedMedia();
             } else if (!isLongPress) {
                 switchMode();
             }
             isLongPress = false;
+            isRecording = false;
         }
 
         function onActionButtonCancel() {
@@ -1222,16 +1203,9 @@
                 pressTimer = null;
             }
             if (isRecording && !isRecordingLocked) {
-                if (currentMode === 'voice') {
-                    stopVoiceRecording();
-                } else {
-                    stopVideoRecording();
-                    videoPreview.classList.remove('show');
-                }
-                hideVoiceRecordingPanel();
+                cancelRecording();
             }
             isLongPress = false;
-            isRecording = false;
         }
 
         actionBtn.addEventListener('mousedown', onActionButtonStart);
@@ -1243,14 +1217,7 @@
         
         window.addEventListener('mouseup', function(e) {
             if (e.target !== actionBtn && isRecording && !isRecordingLocked) {
-                if (currentMode === 'voice') {
-                    stopVoiceRecording();
-                } else {
-                    stopVideoRecording();
-                    videoPreview.classList.remove('show');
-                }
-                hideVoiceRecordingPanel();
-                isRecording = false;
+                cancelRecording();
             }
         });
 
